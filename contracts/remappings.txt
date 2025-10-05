@@ -1,5 +1,5 @@
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+solady/=lib/solady/
+@fhevm/=node_modules/@fhevm/
+@zama-fhe/=node_modules/@zama-fhe/
 encrypted-types/=node_modules/encrypted-types/
-fhevm/=node_modules/@fhevm/solidity/
-solady/=node_modules/solady/
-@openzeppelin/=node_modules/@openzeppelin/
-@zama-fhe/oracle-solidity/=node_modules/@zama-fhe/oracle-solidity/

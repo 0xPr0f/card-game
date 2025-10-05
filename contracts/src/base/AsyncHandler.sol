@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {SepoliaConfig} from "fhevm/config/ZamaConfig.sol";
-import {FHE, euint256, euint8} from "fhevm/lib/FHE.sol";
+// import {SepoliaConfig} from "fhevm/config/ZamaConfig.sol";
+import {FHE, euint256, euint8} from "@fhevm/solidity/lib/FHE.sol";
 
 import {Action} from "../libraries/CardEngineLib.sol";
 import {DeckMap} from "../types/Map.sol";
 
-abstract contract AsyncHandler is SepoliaConfig {
+abstract contract AsyncHandler {
     using FHE for *;
 
     // uint256 immutable MAX_CALLBACK_DELAY;
@@ -33,7 +33,6 @@ abstract contract AsyncHandler is SepoliaConfig {
         euint256[2] marketDeck;
     }
 
-    constructor() {}
 
     function _commitMove(
         uint256 gameId,
@@ -79,9 +78,9 @@ abstract contract AsyncHandler is SepoliaConfig {
         requestToCommittedMarketDeck[reqId] = committedMarketDeck;
     }
 
-    function __validateCallbackSignature(uint256 reqId, uint256 gameId, bytes[] memory signatures) internal {
+    function __validateCallbackSignature(uint256 reqId, bytes memory clearTexts, uint256 gameId, bytes memory decryptionProof) internal {
         if (!_isLatestRequest[gameId][reqId]) revert();
-        FHE.checkSignatures(reqId, signatures);
+        FHE.checkSignatures(reqId, clearTexts, decryptionProof);
     }
 
     function getCommittedMove(uint256 reqId) internal view returns (CommittedCard memory) {
@@ -107,8 +106,8 @@ abstract contract AsyncHandler is SepoliaConfig {
         return _isLatestRequest[gameId][reqId];
     }
 
-    function handleCommitMove(uint256 requestId, uint8 card, bytes[] memory signatures) external virtual;
-    function handleCommitMarketDeck(uint256 requestId, uint256[2] memory marketDeck, bytes[] memory signatures)
+    function handleCommitMove(uint256 requestId, bytes memory clearTexts, bytes memory signatures) external virtual;
+    function handleCommitMarketDeck(uint256 requestId, bytes memory clearTexts, bytes memory signatures)
         external
         virtual;
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {FHE, euint256, euint8} from "fhevm/lib/FHE.sol";
+import {FHE, euint256, euint8} from "@fhevm/solidity/lib/FHE.sol";
 
 import {IRuleset} from "../interfaces/IRuleset.sol";
 import {Card, CardLib} from "../types/Card.sol";

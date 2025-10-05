@@ -1,2 +1,0 @@
-[install]
-linker = "isolated"   # or "hoisted" to go back

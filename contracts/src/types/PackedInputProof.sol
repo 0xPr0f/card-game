@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {externalEuint256} from "fhevm/lib/FHE.sol";
+import {externalEuint256} from "@fhevm/solidity/lib/FHE.sol";
 import {SSTORE2} from "solady/src/utils/SSTORE2.sol";
 
 struct PackedInputProof {

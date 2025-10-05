@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./types/PackedInputProof.sol";
-import "fhevm/lib/FHE.sol";
+import "@fhevm/solidity/lib/FHE.sol";
 import "solady/src/auth/Ownable.sol";
 
 contract TrustedShuffleService is Ownable {

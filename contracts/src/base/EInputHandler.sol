@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import {
     FHE, euint128, euint256, euint64, externalEuint128, externalEuint256, externalEuint64
-} from "fhevm/lib/FHE.sol";
-import {SepoliaConfig} from "fhevm/config/ZamaConfig.sol";
+} from "@fhevm/solidity/lib/FHE.sol";
+import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 
 enum InputOneType {
     _EUINT64,

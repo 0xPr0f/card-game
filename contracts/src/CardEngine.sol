@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
+import {euint256, euint8} from "@fhevm/solidity/lib/FHE.sol";
+import {ReentrancyGuard} from "solady/src/utils/ReentrancyGuard.sol";
+
 import {AsyncHandler} from "./base/AsyncHandler.sol";
 import {CachePositionBase} from "./base/CachePositionBase.sol";
 import {EInputData, EInputHandler} from "./base/EInputHandler.sol";
@@ -12,11 +15,8 @@ import {Action, CardEngineLib, GameData, GameStatus, PendingAction, PlayerData} 
 import {ConditionalsLib} from "./libraries/ConditionalsLib.sol";
 import {CacheManager, CacheValue} from "./types/Cache.sol";
 import {Card, CardLib} from "./types/Card.sol";
-
 import {Hook, HookPermissions} from "./types/Hook.sol";
 import {DeckMap, PlayerStoreMap} from "./types/Map.sol";
-import {euint256, euint8} from "fhevm/lib/FHE.sol";
-import {ReentrancyGuard} from "solady/src/utils/ReentrancyGuard.sol";
 
 contract CardEngine is ICardEngine, EInputHandler, CachePositionBase, AsyncHandler, ReentrancyGuard {
     using ConditionalsLib for *;
@@ -316,11 +316,13 @@ contract CardEngine is ICardEngine, EInputHandler, CachePositionBase, AsyncHandl
         finish(gameId, game, turnIdx, loadPlayerStoreMap(g0), loadMarketDeckMap(g1));
     }
 
-    function handleCommitMove(uint256 requestId, uint8 rawCard, bytes[] memory signatures) external virtual override {
+    function handleCommitMove(uint256 requestId, bytes memory clearTexts, bytes memory signatures) external virtual override {
         CommittedCard memory cc = getCommittedMove(requestId);
         // validate callback signature and that this is the latest request.
-        __validateCallbackSignature(requestId, cc.gameId, signatures);
+        __validateCallbackSignature(requestId, clearTexts, cc.gameId, signatures);
         GameData storage game = cardGame[cc.gameId];
+
+        uint8 rawCard = abi.decode(clearTexts, (uint8));
         Card card = CardLib.toCard(rawCard);
         game.players[cc.playerIndex].deckMap = cc.updatedPlayerDeckMap;
 
@@ -342,7 +344,7 @@ contract CardEngine is ICardEngine, EInputHandler, CachePositionBase, AsyncHandl
         finish(cc.gameId, game, cc.playerIndex, loadPlayerStoreMap(g0), loadMarketDeckMap(g1));
     }
 
-    function handleCommitMarketDeck(uint256 requestId, uint256[2] memory marketDeck, bytes[] memory signatures)
+    function handleCommitMarketDeck(uint256 requestId, bytes memory clearTexts, bytes memory signatures)
         external
         virtual
         override
@@ -350,9 +352,11 @@ contract CardEngine is ICardEngine, EInputHandler, CachePositionBase, AsyncHandl
     {
         CommittedMarketDeck memory cmd = getCommittedMarketDeck(requestId);
         // validate callback signature and that this is the latest request.
-        __validateCallbackSignature(requestId, cmd.gameId, signatures);
+        __validateCallbackSignature(requestId, clearTexts, cmd.gameId, signatures);
         GameData storage game = cardGame[cmd.gameId];
         PlayerData[] storage players = game.players;
+
+        uint256[2] memory marketDeck = abi.decode(clearTexts, (uint256[2]));
         // get only active players.
         PlayerStoreMap playerStoreMap = game.playerStoreMap;
         uint256[] memory playerIndexes = playerStoreMap.getNonEmptyIdxs();
@@ -387,11 +391,9 @@ contract CardEngine is ICardEngine, EInputHandler, CachePositionBase, AsyncHandl
         PlayerStoreMap playerStoreMap,
         DeckMap marketDeckMap
     ) internal {
-        PlayerData memory player = game.players[currentPlayerIdx];
-
         bool playerStoreSingle = playerStoreMap.len() == 1;
         bool gameMarketDeckEmpty = marketDeckMap.isMapEmpty();
-        bool playerDeckEmpty = player.deckMap.isMapEmpty();
+        bool playerDeckEmpty = game.players[currentPlayerIdx].deckMap.isMapEmpty();
 
         // game can end if:
         //  - game market deck is empty.

@@ -8,7 +8,7 @@ import {Card} from "../types/Card.sol";
 import {HookPermissions} from "../types/Hook.sol";
 import {DeckMap, PlayerStoreMap} from "../types/Map.sol";
 import {IRuleset} from "./IRuleset.sol";
-import {euint256} from "fhevm/lib/FHE.sol";
+import {euint256} from "@fhevm/solidity/lib/FHE.sol";
 
 interface ICardEngine {
     function createGame(
