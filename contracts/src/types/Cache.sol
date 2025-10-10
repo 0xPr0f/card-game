@@ -38,18 +38,21 @@ library CacheManager {
         }
     }
 
-    function loadAddress(CacheValue value, uint8 ptr) internal pure returns (address) {
-        return address(uint160(CacheValue.unwrap(value) >> ptr));
+    function loadAddress(CacheValue value, uint8 ptr) internal pure returns (address addr) {
+        assembly {
+            addr := and(shr(ptr, value), ADDRESS_MASK)
+        }
+        // return address(uint160(CacheValue.unwrap(value) >> ptr));
     }
 
     function storeNibble(CacheValue value, uint8 ptr, uint8 nibble) internal pure returns (CacheValue newValue) {
         assembly ("memory-safe") {
-            newValue := or(and(value, not(shl(ptr, 0x0f))), shl(ptr, and(nibble, 0x0f)))
+            newValue := or(and(value, not(shl(ptr, 0xf))), shl(ptr, and(nibble, 0xf)))
         }
     }
 
     function loadNibble(CacheValue value, uint8 ptr) internal pure returns (uint8) {
-        return uint8(CacheValue.unwrap(value) >> ptr) & 0x0f;
+        return uint8(CacheValue.unwrap(value) >> ptr) & 0xf;
     }
 
     function storeU8(CacheValue value, uint8 ptr, uint8 _uint8) internal pure returns (CacheValue newValue) {

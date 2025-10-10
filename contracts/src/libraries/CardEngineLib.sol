@@ -5,8 +5,11 @@ import {FHE, euint256, euint8} from "@fhevm/solidity/lib/FHE.sol";
 
 import {IRuleset} from "../interfaces/IRuleset.sol";
 import {Card, CardLib} from "../types/Card.sol";
-import {DeckMap, PlayerStoreMap} from "../types/Map.sol";
+
 import {HookPermissions} from "../types/Hook.sol";
+import {DeckMap, PlayerStoreMap} from "../types/Map.sol";
+
+import "hardhat/console.sol";
 
 enum Action {
     Play,
@@ -49,13 +52,14 @@ struct GameData {
     uint40 lastMoveTimestamp;
     // maxPlayers | playersLeftToJoin;
     uint8 packedJoinCapacity;
+    uint8 numProposedPlayers;
     HookPermissions hookPermissions;
     PlayerStoreMap playerStoreMap;
-    uint8 numProposedPlayers;
     // card size
     IRuleset ruleSet;
     DeckMap marketDeckMap;
     uint8 initialHandSize;
+    // uint8 
     euint256[2] marketDeck;
     PlayerData[] players;
     mapping(address => bool) isProposedPlayer;
@@ -108,7 +112,7 @@ library CardEngineLib {
             uint256 marketDeckIdx = cardIndexes[i];
             uint256 mask = (uint256(1) << cardSize) - 1;
             uint256 rawCard =
-                marketDeck[marketDeckIdx / numCardsIn0] >> ((marketDeckIdx % numCardsIn0) * cardSize) & mask;
+                (marketDeck[marketDeckIdx / numCardsIn0] >> ((marketDeckIdx % numCardsIn0) * cardSize)) & mask;
             Card card = CardLib.toCard(uint8(rawCard));
             (, uint256 cardValue) = $.ruleSet.getCardAttributes(card, cardSize);
             total += uint16(cardValue);
@@ -158,12 +162,24 @@ library CardEngineLib {
     }
 
     function initializeMarketDeckMap(uint256 marketDeckLen, uint256 deckCardBitSize) internal pure returns (DeckMap) {
-        uint56 cardSize = uint56(deckCardBitSize & 0x03);
-        return DeckMap.wrap(uint56(((uint256(1) << marketDeckLen) - 1) << 2) | cardSize);
+        uint64 cardSize = uint64(deckCardBitSize & 0x03);
+        return DeckMap.wrap(uint64(((uint256(1) << marketDeckLen) - 1) << 2) | cardSize);
     }
 
     function emptyDeckMapAtIndex(PlayerData memory p, uint256 cardIdx) internal pure returns (DeckMap) {
         return p.deckMap.setToEmpty(cardIdx);
+    }
+
+    function updatePlayerHand(GameData storage $, PlayerData memory p, uint256 playerIdx, uint256 cardIdx) internal {
+        DeckMap updatedPlayerDeckMap = p.deckMap.setToEmpty(cardIdx);
+        $.players[playerIdx].deckMap = updatedPlayerDeckMap;
+        uint256 numCardsIn0 = 256 / updatedPlayerDeckMap.getDeckCardSize();
+        uint256 i = cardIdx / numCardsIn0;
+        uint256 mask = updatedPlayerDeckMap.computeMask()[i];
+        euint256 updatedDeck = $.marketDeck[i].and(mask);
+        $.players[playerIdx].hand[i] = updatedDeck;
+        FHE.allow(updatedDeck, p.playerAddr);
+        FHE.allowThis(updatedDeck);
     }
 
     function dealInitialHand(
@@ -212,14 +228,14 @@ library CardEngineLib {
         if (marketDeckMap.isMapNotEmpty()) {
             uint256 cardIdx;
 
-            (marketDeckMap, $.players[currentIdx].deckMap, cardIdx) = marketDeckMap.deal(p.deckMap);
-
+            (marketDeckMap, p.deckMap, cardIdx) = marketDeckMap.deal(p.deckMap);
+            $.players[currentIdx].deckMap = p.deckMap;
             uint256 i = cardIdx / numCardsIn0;
             uint256 mask = p.deckMap.computeMask()[i];
-            euint256 updatedcardDeck = $.marketDeck[i].and(mask);
-            $.players[currentIdx].hand[i] = updatedcardDeck;
-            FHE.allow(updatedcardDeck, p.playerAddr);
-            FHE.allowThis(updatedcardDeck);
+            euint256 updatedDeck = $.marketDeck[i].and(mask);
+            $.players[currentIdx].hand[i] = updatedDeck;
+            FHE.allow(updatedDeck, p.playerAddr);
+            FHE.allowThis(updatedDeck);
         }
         return marketDeckMap;
     }
@@ -363,4 +379,6 @@ library CardEngineLib {
             }
         }
     }
+
+    function resolvePending(GameData storage $, uint256 playerIdx)internal {}
 }

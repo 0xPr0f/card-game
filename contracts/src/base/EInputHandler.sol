@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {
-    FHE, euint128, euint256, euint64, externalEuint128, externalEuint256, externalEuint64
-} from "@fhevm/solidity/lib/FHE.sol";
 import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
+import {
+    FHE,
+    euint128,
+    euint256,
+    euint64,
+    externalEuint128,
+    externalEuint256,
+    externalEuint64
+} from "@fhevm/solidity/lib/FHE.sol";
 
 enum InputOneType {
     _EUINT64,

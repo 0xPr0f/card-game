@@ -40,6 +40,8 @@ interface IRuleset {
         Card callCard;
         uint256 cardSize;
         uint8 currentPlayerIndex;
+        // marketDeckMap
+        // playerDeckMap
         PlayerStoreMap playerStoreMap;
         bool isSpecial;
         bytes extraData;

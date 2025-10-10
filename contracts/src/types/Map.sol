@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {LibBit} from "solady/src/utils/LibBit.sol";
+import "hardhat/console.sol";
 
 type DeckMap is uint64;
 // deckMap, mapSize, len
@@ -16,8 +17,8 @@ library DeckMapLib {
     error IndexIsEmpty();
     error IndexNotEmpty();
 
-    function rawMap(DeckMap deckMap) internal pure returns (uint56) {
-        return uint56(DeckMap.unwrap(deckMap) >> 2);
+    function rawMap(DeckMap deckMap) internal pure returns (uint64) {
+        return uint64(DeckMap.unwrap(deckMap) >> 2);
     }
 
     function newMap(DeckMap deckMap) internal pure returns (DeckMap) {
@@ -41,28 +42,26 @@ library DeckMapLib {
     }
 
     function len(DeckMap deckMap) internal pure returns (uint256) {
-        return DeckMap.unwrap(deckMap) & 0x3f;
+        return LibBit.popCount(uint256(deckMap.rawMap()));
     }
 
     function getDeckCardSize(DeckMap deckMap) internal pure returns (uint256) {
-        return 8 - (deckMap.rawMap() & 0x03);
+        return 8 - (DeckMap.unwrap(deckMap) & 0x03);
     }
 
     function getNonEmptyIdxs(DeckMap deckMap) internal pure returns (uint256[] memory) {
         uint256[] memory idxs = new uint256[](deckMap.len());
-        uint56 map = deckMap.rawMap();
-        // console.log("deckMap: ", DeckMap.unwrap(deckMap) >> 8);
+        uint64 map = deckMap.rawMap();
 
         uint256 currentIdx;
         while (map != 0) {
             uint256 firstSetBit = LibBit.ffs(uint256(map)); // find the first set bit
-            // console.log("lsb", firstSetBit);
             unchecked {
                 idxs[currentIdx++] = firstSetBit;
                 map &= (map - 1);
             }
             // console.log("map idx", firstSetBit);
-            // map = map - (uint56(1) << firstSetBit); // clear the first set bit
+            // map = map - (uint64(1) << firstSetBit); // clear the first set bit
             // map = map >> (lsb + 1); // clear the first set bit
         }
         // gasEnd = gasleft();
@@ -72,7 +71,7 @@ library DeckMapLib {
 
     function getNonEmptyIdxs(DeckMap deckMap, uint256 amount) internal pure returns (uint256[] memory) {
         uint256[] memory idxs = new uint256[](amount);
-        uint56 map = deckMap.rawMap();
+        uint64 map = deckMap.rawMap();
         // console.log("deckMap: ", DeckMap.unwrap(deckMap) >> 10);
 
         // uint256 gasBegin = gasleft();
@@ -85,7 +84,7 @@ library DeckMapLib {
                 idxs[currentIdx++] = firstSetBit;
                 map &= (map - 1);
             }
-            // map = map - uint56(1 << firstSetBit); // clear the first set bit
+            // map = map - uint64(1 << firstSetBit); // clear the first set bit
             // map = map >> (firstSetBit + 1); // clear the first set bit
         }
 
@@ -108,16 +107,17 @@ library DeckMapLib {
     }
 
     function set(DeckMap deckMap, uint256 idx, bool empty) internal pure returns (DeckMap) {
-        uint256 map = DeckMap.unwrap(deckMap);
-        // assumes the usable bit-range fits before wrapping to uint56
-        uint256 mask = uint256(1) << (idx + 2);
-        // branchless: write bit = empty (0/1)
-        map = (map & ~mask) | (uint256(empty ? 0 : 1) * mask);
-        return DeckMap.wrap(uint56(map));
+        // console.log("idx to set", idx);
+        // uint256 map = DeckMap.unwrap(deckMap);
+        // // assumes the usable bit-range fits before wrapping to uint64
+        // uint256 mask = uint256(1) << (idx + 2);
+        // // branchless: write bit = empty (0/1)
+        // map = (map & ~mask) | (uint256(empty ? 0 : 1) * mask);
+        // return DeckMap.wrap(uint64(map));
         // // if (idx > deckMap.len()) revert IndexOutOfBounds(); //revert("DeckMapLib: Idx out of bounds");
-        // uint256 map = empty
-        //     ? DeckMap.unwrap(deckMap) | (uint256(1) << (idx + 2))
-        //     : DeckMap.unwrap(deckMap) & ~(uint256(1) << (idx + 2));
+        uint256 map = empty
+            ? DeckMap.unwrap(deckMap) | (uint256(1) << (idx + 2))
+            : DeckMap.unwrap(deckMap) & ~(uint256(1) << (idx + 2));
         // // uint256 mask = 1 << (idx + 10);
         // // uint256 map = DeckMap.unwrap(deckMap);
         // // int256 b;
@@ -132,7 +132,7 @@ library DeckMapLib {
         // // //     map := xor(map, mask)
         // // // }
         // // // return map ^ (uint256(-b) ^ map) & mask;
-        // return DeckMap.wrap(uint56(map));
+        return DeckMap.wrap(uint64(map));
         // // return DeckMap.wrap(uint64(map ^ (uint256(-b) ^ map) & mask));
     }
 
@@ -158,7 +158,7 @@ library DeckMapLib {
         if (mask & map != mask) revert IndexIsEmpty(); //revert("DeckMapLib: Idx not empty");
         // to  clear:
         // uint64 deckMapLen = deckMap.len();
-        return DeckMap.wrap(uint56((~mask & map) << 2 | (DeckMap.unwrap(deckMap) & 0x03)));
+        return DeckMap.wrap(uint64((~mask & map) << 2 | (DeckMap.unwrap(deckMap) & 0x03)));
         // if (deckMap.isEmpty(idx)) revert("DeckMapLib: Idx already empty");
         // return deckMap.set(idx, false);
     }
@@ -174,7 +174,7 @@ library DeckMapLib {
         }
         // set to filled with mask!
         if (mask & map != 0) revert IndexNotEmpty(); //("DeckMapLib: Idx already filled");
-        return DeckMap.wrap(uint56(mask << 2 | DeckMap.unwrap(deckMap)));
+        return DeckMap.wrap(uint64(mask << 2 | DeckMap.unwrap(deckMap)));
 
         // if (deckMap.isNotEmpty(idx)) revert("DeckMapLib: Idx already filled");
         // return set(deckMap, idx, true);
@@ -196,12 +196,12 @@ library DeckMapLib {
         returns (DeckMap, DeckMap)
     {
         // mask
-        for (uint256 i = 0; i < idxs.length; i++) {
-            marketDeckMap = marketDeckMap.setToEmpty(idxs[i]);
-            playerDeckMap = playerDeckMap.fill(idxs[i]);
-        }
-        // marketDeckMap = marketDeckMap.setToEmpty(idxs);
-        // playerDeckMap = playerDeckMap.fill(idxs);
+        // for (uint256 i = 0; i < idxs.length; i++) {
+        //     marketDeckMap = marketDeckMap.setToEmpty(idxs[i]);
+        //     playerDeckMap = playerDeckMap.fill(idxs[i]);
+        // }
+        marketDeckMap = marketDeckMap.setToEmpty(idxs);
+        playerDeckMap = playerDeckMap.fill(idxs);
         return (marketDeckMap, playerDeckMap);
     }
 
@@ -218,11 +218,12 @@ library DeckMapLib {
         uint256[] memory nonEmptyIdxs = deckMap.getNonEmptyIdxs();
         uint256 cardBitsSize = deckMap.getDeckCardSize();
         uint256 numCardsIn0 = 256 / cardBitsSize;
-        uint256 cardMask = (uint256(1) << cardBitsSize) - 1;
+        uint256 cardMask = (uint256(1) << (cardBitsSize)) - 1;
         for (uint256 i = 0; i < nonEmptyIdxs.length; i++) {
             // console.log("mask arr", nonEmptyIdxs[i]);
             uint256 idx = nonEmptyIdxs[i];
-            mask[idx / numCardsIn0] |= cardMask << ((nonEmptyIdxs[i] % numCardsIn0) * cardBitsSize);
+            // mask[idx / numCardsIn0] |= cardMask << ((nonEmptyIdxs[i] % numCardsIn0) * cardBitsSize);
+            mask[idx / numCardsIn0] = mask[idx / numCardsIn0] | (cardMask << ((idx % numCardsIn0) * cardBitsSize));
         }
     }
 }
@@ -259,11 +260,11 @@ library PlayerStoreMapLib {
         return playerStoreMap.rawMap() != 0;
     }
 
-    function len(PlayerStoreMap playerStoreMap) internal pure returns (uint256) {
-        return PlayerStoreMap.unwrap(playerStoreMap) & 0x0f;
-    }
+    // function len(PlayerStoreMap playerStoreMap) internal pure returns (uint256) {
+    //     return PlayerStoreMap.unwrap(playerStoreMap) & 0x0f;
+    // }
 
-    function popCount(PlayerStoreMap playerStoreMap) internal pure returns (uint256 count) {
+    function len(PlayerStoreMap playerStoreMap) internal pure returns (uint256 count) {
         assembly {
             let lo := and(playerStoreMap, 0x0f)
             let hi := shr(0x04, playerStoreMap)
@@ -344,22 +345,47 @@ library PlayerStoreMapLib {
 
     // function isValidIndex(PlayerStoreMap playerStoreMap, uint256 idx) internal returns (bool) {}
 
-    function getNextIndexFrom_RL(PlayerStoreMap playerStoreMap, uint8 startIdx) internal pure returns (uint8 nextIdx) {
-        uint8 map = playerStoreMap.rawMap();
-        if (map != 0) {
-            uint8 shift = (startIdx + 1) & 0x07;
-            uint8 rotate = (map >> shift) | (map << (8 - shift));
-            // uint8 lsb = rotate & uint8(-rotate);
-            uint8 key = ((rotate & uint8(~rotate + 1)) * 0x1d) >> 5;
-            assembly {
-                // forgefmt: disable-next-item
-                let idx := byte(key, 0x0001060207050403000000000000000000000000000000000000000000000000)
-                nextIdx := and(add(add(idx, startIdx), 0x01), 0x07)
-            }
-        } else {
-            revert MapIsEmpty(playerStoreMap);
+    function getNextIndexFrom_RL(
+    PlayerStoreMap playerStoreMap,
+    uint8 startIdx
+) internal pure returns (uint8 nextIdx) {
+    uint8 map = playerStoreMap.rawMap();
+    if (map == 0) revert MapIsEmpty(playerStoreMap);
+    // optional: require(startIdx < 8, "startIdx out of range");
+
+    unchecked {
+        // Rotate RIGHT by (startIdx + 1) so the *next* seat becomes bit 0.
+        uint8 shift  = (startIdx + 1) & 0x07;
+        uint8 rotate = uint8(((uint256(map) >> shift) | (uint256(map) << (8 - shift))) & 0xFF);
+
+        // Isolate lowest set bit (rotate != 0 since map != 0)
+        uint8 lsb = rotate & (~rotate + 1);
+
+        // 8-bit De Bruijn fold; keys: {0,1,3,7,14,29,58,116} → mask to 5 bits
+        uint8 key5 = uint8(((uint256(lsb) * 0x1d) >> 5) & 31);
+
+        // Map residues → bit index (0..7)
+        uint8 idx;
+        assembly {
+            // residues: 0,1,3,7,14,29,26,20  -> indexes: 0..7
+            switch key5
+            case 0  { idx := 0 }
+            case 1  { idx := 1 }
+            case 3  { idx := 2 }
+            case 7  { idx := 3 }
+            case 14 { idx := 4 }
+            case 29 { idx := 5 }
+            case 26 { idx := 6 }
+            case 20 { idx := 7 }
+            default { idx := 0 } // unreachable for valid lsb
         }
+
+        // Undo the rotation offset: (startIdx + 1 + idx) mod 8
+        nextIdx = uint8((uint16(startIdx) + 1 + idx) & 7);
     }
+}
+
+
 
     // function getNextIndexFrom_LR(PlayerStoreMap playerStoreMap, uint256 startIdx)
     //     internal

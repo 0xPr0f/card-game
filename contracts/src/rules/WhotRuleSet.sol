@@ -8,6 +8,8 @@ import {ConditionalsLib} from "../libraries/ConditionalsLib.sol";
 import {Card, WhotCardStandardLibx8} from "../types/Card.sol";
 import {PlayerStoreMap} from "../types/Map.sol";
 
+import "hardhat/console.sol";
+
 // This contract contains the rules for the Whot game.
 // It includes functions to validate moves, check game state, etc.
 contract WhotRuleset is IRuleset {
@@ -38,35 +40,38 @@ contract WhotRuleset is IRuleset {
                 uint8 nextTurn = params.playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex);
                 effect.againstPlayerIndex = nextTurn; // Set turn to 1 for pick actions
                 effect.nextPlayerIndex = nextTurn;
-            }
+            } else
 
             if (params.card.pickThree() && params.isSpecial) {
                 effect.op = EngineOp.PickPendingThree;
                 uint8 nextTurn = params.playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex);
                 effect.againstPlayerIndex = nextTurn;
                 effect.nextPlayerIndex = nextTurn;
-            }
+            } else
 
             if (params.card.holdOn()) {
                 PlayerStoreMap playerStoreMap = params.playerStoreMap;
                 effect.nextPlayerIndex =
                     playerStoreMap.getNextIndexFrom_RL(playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex)); // Set turn to 1 for hold on op
-            }
+            } else
 
             if (params.card.suspension()) {
                 effect.nextPlayerIndex = params.currentPlayerIndex; // Set turn to 0 for suspension op
-            }
+            } else
 
             if (params.card.generalMarket()) {
                 effect.op = EngineOp.PickOne;
                 effect.againstPlayerIndex = type(uint8).max; // Set turn to 0 for general market op
                 effect.nextPlayerIndex = params.currentPlayerIndex;
-            }
+            } else
 
             if (params.card.iWish()) {
                 (WhotCardStandardLibx8.CardShape wishShape) =
                     abi.decode(params.extraData, (WhotCardStandardLibx8.CardShape));
                 effect.callCard = WhotCardStandardLibx8.makeWhotWish(wishShape);
+            } else {
+                uint8 nextTurn = params.playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex);
+                effect.nextPlayerIndex = nextTurn; // Normal play, just advance turn
             }
         } else if (params.gameAction.eqs(GameAction.Defend)) {
             if (!params.isSpecial) {
@@ -84,7 +89,7 @@ contract WhotRuleset is IRuleset {
     }
 
     function computeStartIndex(PlayerStoreMap playerStoreMap) public view returns (uint8 startIdx) {
-        return uint8(rng.generatePseudoRandomNumber() % playerStoreMap.len());
+        // return uint8(rng.generatePseudoRandomNumber() % playerStoreMap.len());
     }
 
     function computeNextTurnIndex(PlayerStoreMap playerStoreMap, uint256 currentPlayerIndex)

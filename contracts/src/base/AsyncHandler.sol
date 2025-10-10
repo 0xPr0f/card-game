@@ -22,8 +22,7 @@ abstract contract AsyncHandler {
         Action action;
         uint40 timestamp;
         uint8 playerIndex;
-        DeckMap updatedPlayerDeckMap;
-        euint8 card;
+        uint8 cardIndex;
         uint256 gameId;
         bytes extraData;
     }
@@ -33,12 +32,11 @@ abstract contract AsyncHandler {
         euint256[2] marketDeck;
     }
 
-
     function _commitMove(
         uint256 gameId,
         euint8 cardToCommit,
         Action action,
-        DeckMap updatedPlayerDeckMap,
+        uint256 cardIndex,
         uint256 playerIndex,
         bytes memory extraData
     ) internal {
@@ -51,8 +49,7 @@ abstract contract AsyncHandler {
             action: action,
             timestamp: uint40(block.timestamp),
             playerIndex: uint8(playerIndex),
-            updatedPlayerDeckMap: updatedPlayerDeckMap,
-            card: cardToCommit,
+            cardIndex: uint8(cardIndex),
             gameId: gameId,
             extraData: extraData
         });
@@ -78,7 +75,12 @@ abstract contract AsyncHandler {
         requestToCommittedMarketDeck[reqId] = committedMarketDeck;
     }
 
-    function __validateCallbackSignature(uint256 reqId, bytes memory clearTexts, uint256 gameId, bytes memory decryptionProof) internal {
+    function __validateCallbackSignature(
+        uint256 reqId,
+        bytes memory clearTexts,
+        uint256 gameId,
+        bytes memory decryptionProof
+    ) internal {
         if (!_isLatestRequest[gameId][reqId]) revert();
         FHE.checkSignatures(reqId, clearTexts, decryptionProof);
     }

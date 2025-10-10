@@ -37,7 +37,7 @@ interface ICardEngine {
     function getPlayerData(uint256 gameId, uint256 playerIndex)
         external
         view
-        returns (address playerAddr, DeckMap deckMap, PendingAction pendingAction, uint16 score);
+        returns (address playerAddr, DeckMap deckMap, PendingAction pendingAction, uint16 score, euint256[2] memory hand);
     function getGameData(uint256 gameId)
         external
         view

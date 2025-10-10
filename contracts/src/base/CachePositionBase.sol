@@ -9,37 +9,36 @@ import {Card, CardLib} from "../types/Card.sol";
 
 import {HookPermissions} from "../types/Hook.sol";
 import {DeckMap, PlayerStoreMap} from "../types/Map.sol";
+import "hardhat/console.sol";
 
 abstract contract CachePositionBase {
-    uint8 constant GAME_CREATOR_POS = 0;
-    uint8 constant CALL_CARD_POS = 160;
-    uint8 constant PLAYER_TURN_INDEX_POS = 168;
-    uint8 constant STATUS_POS = 176;
-    uint8 constant LAST_MOVE_TIMESTAMP_POS = 184;
-    uint8 constant PLAYERS_LEFT_TO_JOIN_POS = 224;
-    uint8 constant MAX_PLAYERS_POS = 228;
-    uint8 constant NUM_PROPOSED_PLAYERS_POS = 232;
-    uint8 constant HOOK_PERMISSIONS_POS = 240;
-    uint8 constant PLAYER_STORE_MAP_POS = 248;
+    uint8 internal constant GAME_CREATOR_POS = 0;
+    uint8 internal constant CALL_CARD_POS = 160;
+    uint8 internal constant PLAYER_TURN_INDEX_POS = 168;
+    uint8 internal constant STATUS_POS = 176;
+    uint8 internal constant LAST_MOVE_TIMESTAMP_POS = 184;
+    uint8 internal constant PLAYERS_LEFT_TO_JOIN_POS = 224;
+    uint8 internal constant MAX_PLAYERS_POS = 228;
+    uint8 internal constant NUM_PROPOSED_PLAYERS_POS = 232;
+    uint8 internal constant HOOK_PERMISSIONS_POS = 236;
+    uint8 internal constant PLAYER_STORE_MAP_POS = 248;
 
-    uint8 constant RULESET_POS = 0;
-    uint8 constant MARKET_DECK_MAP_POS = 160;
-    uint8 constant INITIAL_HAND_SIZE_POS = 168;
+    uint8 internal constant RULESET_POS = 0;
+    uint8 internal constant MARKET_DECK_MAP_POS = 160;
+    uint8 internal constant INITIAL_HAND_SIZE_POS = 224;
 
     struct Cache {
+        CacheValue prevValue;
         CacheValue value;
         uint256 slot;
     }
 
     /// READ
 
-    function loadCache(GameData storage game, uint256 indexFrom) internal view returns (Cache memory cache) {
-        uint256 slot;
-        assembly ("memory-safe") {
-            slot := add(game.slot, indexFrom)
-        }
+    function loadCache(uint256 slot) internal view returns (Cache memory cache) {
         cache.slot = slot;
         cache.value = CacheManager.toCachedValue(slot);
+        cache.prevValue = cache.value;
     }
 
     function loadGameCreator(Cache memory cache) internal pure returns (address) {
@@ -162,6 +161,9 @@ abstract contract CachePositionBase {
     }
 
     function toStorage(Cache memory cache) internal {
-        cache.value.toStorage(cache.slot);
+        if (cache.value != cache.prevValue) {
+            cache.value.toStorage(cache.slot);
+            cache.prevValue = cache.value;
+        }
     }
 }
