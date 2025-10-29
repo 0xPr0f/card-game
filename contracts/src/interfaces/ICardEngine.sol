@@ -11,22 +11,23 @@ import {IRuleset} from "./IRuleset.sol";
 import {euint256} from "@fhevm/solidity/lib/FHE.sol";
 
 interface ICardEngine {
-    function createGame(
-        EInputData calldata inputData,
-        bytes calldata inputProof,
-        address[] calldata proposedPlayers,
-        IRuleset gameRuleSet,
-        uint256 cardBitSize,
-        uint256 cardDeckSize,
-        uint8 maxPlayers,
-        uint8 initialHandSize,
-        HookPermissions hookPermissions
-    ) external returns (uint256 gameId);
+    struct CreateGameParams {
+        EInputData inputData;
+        bytes inputProof;
+        address[] proposedPlayers;
+        IRuleset gameRuleset;
+        uint256 cardBitSize;
+        uint256 cardDeckSize;
+        uint8 maxPlayers;
+        uint8 initialHandSize;
+        HookPermissions hookPermissions;
+    }
 
+    function createGame(CreateGameParams calldata params) external returns (uint256 gameId);
     function joinGame(uint256 gameId) external;
     function startGame(uint256 gameId) external;
     function commitMove(uint256 gameId, Action action, uint256 cardIndex, bytes memory extraData) external;
-    function executeMove(uint256 gameId, Action action) external;
+    function executeMove(uint256 gameId, Action action, bytes memory extraData) external;
     function forfeit(uint256 gameId) external;
     function bootOut(uint256 gameId) external;
 
@@ -37,7 +38,7 @@ interface ICardEngine {
     function getPlayerData(uint256 gameId, uint256 playerIndex)
         external
         view
-        returns (address playerAddr, DeckMap deckMap, PendingAction pendingAction, uint16 score, euint256[2] memory hand);
+        returns (address playerAddr, DeckMap deckMap, uint8 pendingAction, uint16 score, euint256[2] memory hand);
     function getGameData(uint256 gameId)
         external
         view

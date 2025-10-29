@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {IManagerHook, IManagerView} from "../interfaces/IManager.sol";
 import {Action} from "../libraries/CardEngineLib.sol";
 import {Card} from "../types/Card.sol";
+import {DeckMap} from "../types/Map.sol";
 
 type HookPermissions is uint8;
 
@@ -23,12 +24,13 @@ library Hook {
         address player,
         Card playingCard,
         Action action
-    ) internal {}
+    ) internal returns (bool) {}
     function onFinishGame(
         IManagerHook hook,
         HookPermissions permissions,
         uint256 gameId,
-        uint256[] memory playersScoreData
+        uint256[] memory playersData,
+        uint256[2] memory marketDeck
     ) internal {}
     function hasSpecialMoves(
         IManagerView hook,

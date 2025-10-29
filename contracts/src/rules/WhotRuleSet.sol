@@ -25,47 +25,37 @@ contract WhotRuleset is IRuleset {
 
     // Example function to validate a move
     function resolveMove(ResolveMoveParams memory params) public pure returns (Effect memory effect) {
-        if (!params.callCard.matchWhot(params.card)) {
-            revert();
-        }
-
-        effect.callCard = params.callCard;
+        Action[] memory actionsToExec = new Action[](1);
         if (params.gameAction.eqs(GameAction.Play)) {
+            if (!params.callCard.matchWhot(params.card)) {
+                revert("Cards dont match");
+            }
+            effect.callCard = params.callCard;
             if (params.card.pickTwo()) {
                 if (params.card.pickFour() && params.isSpecial) {
-                    effect.op = EngineOp.PickPendingFour;
+                    actionsToExec[0].op = EngineOp.PickPendingFour;
                 } else {
-                    effect.op = EngineOp.PickPendingTwo;
+                    actionsToExec[0].op = EngineOp.PickPendingTwo;
                 }
                 uint8 nextTurn = params.playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex);
-                effect.againstPlayerIndex = nextTurn; // Set turn to 1 for pick actions
+                actionsToExec[0].againstPlayerIndex = nextTurn; // Set turn to 1 for pick action
                 effect.nextPlayerIndex = nextTurn;
-            } else
-
-            if (params.card.pickThree() && params.isSpecial) {
-                effect.op = EngineOp.PickPendingThree;
+            } else if (params.card.pickThree() && params.isSpecial) {
+                actionsToExec[0].op = EngineOp.PickPendingThree;
                 uint8 nextTurn = params.playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex);
-                effect.againstPlayerIndex = nextTurn;
+                actionsToExec[0].againstPlayerIndex = nextTurn;
                 effect.nextPlayerIndex = nextTurn;
-            } else
-
-            if (params.card.holdOn()) {
+            } else if (params.card.holdOn()) {
                 PlayerStoreMap playerStoreMap = params.playerStoreMap;
                 effect.nextPlayerIndex =
                     playerStoreMap.getNextIndexFrom_RL(playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex)); // Set turn to 1 for hold on op
-            } else
-
-            if (params.card.suspension()) {
+            } else if (params.card.suspension()) {
                 effect.nextPlayerIndex = params.currentPlayerIndex; // Set turn to 0 for suspension op
-            } else
-
-            if (params.card.generalMarket()) {
-                effect.op = EngineOp.PickOne;
-                effect.againstPlayerIndex = type(uint8).max; // Set turn to 0 for general market op
+            } else if (params.card.generalMarket()) {
+                actionsToExec[0].op = EngineOp.PickOne;
+                actionsToExec[0].againstPlayerIndex = type(uint8).max; // Set turn to 0 for general market op
                 effect.nextPlayerIndex = params.currentPlayerIndex;
-            } else
-
-            if (params.card.iWish()) {
+            } else if (params.card.iWish()) {
                 (WhotCardStandardLibx8.CardShape wishShape) =
                     abi.decode(params.extraData, (WhotCardStandardLibx8.CardShape));
                 effect.callCard = WhotCardStandardLibx8.makeWhotWish(wishShape);
@@ -78,14 +68,23 @@ contract WhotRuleset is IRuleset {
                 revert(); //revert DefenseNotEnabled();
             }
             uint8 nextTurn = params.playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex);
-            if (params.pendingAction.eqs(GamePendingAction.PickFour)) {
-                effect.op = EngineOp.PickTwo;
-                effect.againstPlayerIndex = params.currentPlayerIndex;
+            if (params.pendingAction == 4) {
+                actionsToExec[0].op = EngineOp.PickTwo;
+                actionsToExec[0].againstPlayerIndex = params.currentPlayerIndex;
             }
             effect.nextPlayerIndex = nextTurn;
-        } else {
-            revert("WhotRuleset: Invalid op");
+        } else if (params.gameAction.eqs(GameAction.Draw)) {
+            actionsToExec[0].op = EngineOp.PickOne;
+            actionsToExec[0].againstPlayerIndex = params.currentPlayerIndex;
+            uint8 nextTurn = params.playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex);
+            effect.nextPlayerIndex = nextTurn; // Normal play, just advance turn
+        } else if (params.gameAction.eqs(GameAction.Pick)) {
+            actionsToExec[0].op = EngineOp(params.pendingAction % 8);
+            actionsToExec[0].againstPlayerIndex = params.currentPlayerIndex;
+            uint8 nextTurn = params.playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex);
+            effect.nextPlayerIndex = nextTurn; // Normal play, just advance turn
         }
+        effect.actions = actionsToExec;
     }
 
     function computeStartIndex(PlayerStoreMap playerStoreMap) public view returns (uint8 startIdx) {

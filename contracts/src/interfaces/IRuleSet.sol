@@ -3,7 +3,8 @@ pragma solidity ^0.8.13;
 
 import {Action as GameAction, PendingAction as GamePendingAction} from "../libraries/CardEngineLib.sol";
 import {Card} from "../types/Card.sol";
-import {PlayerStoreMap} from "../types/Map.sol";
+import {DeckMap, PlayerStoreMap} from "../types/Map.sol";
+import {euint256} from "@fhevm/solidity/lib/FHE.sol";
 
 interface IRuleset {
     enum EngineOp {
@@ -26,22 +27,28 @@ interface IRuleset {
         PickPendingEight
     }
 
-    struct Effect {
+    struct Action {
         EngineOp op;
-        Card callCard;
         uint8 againstPlayerIndex;
+    }
+
+    struct Effect {
+        Action[] actions;
+        Card callCard;
         uint8 nextPlayerIndex;
+        bool currentPlayerExit;
     }
 
     struct ResolveMoveParams {
         GameAction gameAction;
-        GamePendingAction pendingAction;
+        uint8 pendingAction;
         Card card;
         Card callCard;
         uint256 cardSize;
         uint8 currentPlayerIndex;
         // marketDeckMap
-        // playerDeckMap
+        DeckMap playerDeckMap;
+        euint256[2] playerHand;
         PlayerStoreMap playerStoreMap;
         bool isSpecial;
         bytes extraData;

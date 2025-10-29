@@ -11,14 +11,17 @@ abstract contract AsyncHandler {
     using FHE for *;
 
     // uint256 immutable MAX_CALLBACK_DELAY;
+    uint256 private _latestRequest;
 
-    mapping(uint256 requestId => CommittedCard) private requestToCommittedMove;
+    mapping(uint256 requestId => CommittedMoveData) private requestToCommittedMove;
     // mapping(uint256 gameId => uint256 requestId) private committedMoveToGatewayRequest;
     mapping(uint256 requestId => CommittedMarketDeck) private requestToCommittedMarketDeck;
     mapping(uint256 gameId => mapping(uint256 req => bool)) private _isLatestRequest;
     mapping(uint256 gameId => bool) private _hasCommittedAction;
 
-    struct CommittedCard {
+    mapping(uint256 requestId => bool) private _isRequestIdCommittedMove;
+
+    struct CommittedMoveData {
         Action action;
         uint40 timestamp;
         uint8 playerIndex;
@@ -45,7 +48,7 @@ abstract contract AsyncHandler {
 
         uint256 reqId = FHE.requestDecryption(cts, this.handleCommitMove.selector);
 
-        CommittedCard memory cc = CommittedCard({
+        CommittedMoveData memory cc = CommittedMoveData({
             action: action,
             timestamp: uint40(block.timestamp),
             playerIndex: uint8(playerIndex),
@@ -85,7 +88,7 @@ abstract contract AsyncHandler {
         FHE.checkSignatures(reqId, clearTexts, decryptionProof);
     }
 
-    function getCommittedMove(uint256 reqId) internal view returns (CommittedCard memory) {
+    function getCommittedMove(uint256 reqId) internal view returns (CommittedMoveData memory) {
         return requestToCommittedMove[reqId];
     }
 
@@ -98,10 +101,21 @@ abstract contract AsyncHandler {
         return _hasCommittedAction[gameId];
     }
 
-    function clearCommitment(uint256 gameId, uint256 reqId) internal {
+    function isReqComittedMove(uint256 reqId) internal view returns (bool) {
+        return _isRequestIdCommittedMove[reqId];
+    }
+
+    function _clearCommitment(uint256 gameId, uint256 reqId) internal {
         // committedMoveToGatewayRequest[gameId] = 0;
         _hasCommittedAction[gameId] = false;
         _isLatestRequest[gameId][reqId] = false;
+    }
+
+    function _clearLatestCommittedMove(uint256 gameId, uint256 playerIndex) internal {
+        uint256 latestReqId = _latestRequest;
+        if (isReqComittedMove(latestReqId) && getCommittedMove(latestReqId).playerIndex == playerIndex) {
+            _clearCommitment(gameId, latestReqId);
+        }
     }
 
     function isLatestRequest(uint256 gameId, uint256 reqId) internal view returns (bool) {

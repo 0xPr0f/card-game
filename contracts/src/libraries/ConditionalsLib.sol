@@ -23,6 +23,12 @@ library ConditionalsLib {
         }
     }
 
+    function eqs(IRuleset.EngineOp a, IRuleset.EngineOp b) internal pure returns (bool c) {
+        assembly {
+            c := eq(a, b)
+        }
+    }
+
     function eqsOr(Action a, Action b, Action c) internal pure returns (bool d) {
         assembly {
             d := or(eq(a, b), eq(a, c))

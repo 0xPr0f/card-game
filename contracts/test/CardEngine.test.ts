@@ -57,17 +57,19 @@ describe('Engine', function () {
       };
     }).bind(this)();
 
-    let tx = await this.cardEngine.connect(this.alice).createGame(
-      inputData,
-      encryptedDeck.inputProof,
-      [],
-      await this.ruleset.getAddress(),
-      8,
-      54,
-      4,
-      2,
-      0 // HookPermissions.NONE
-    )
+    let createGameParams = {
+      gameRuleset: await this.ruleset.getAddress(),
+      cardBitSize: 8,
+      cardDeckSize: 52,
+      maxPlayers: 3,
+      initialHandSize: 2,
+      proposedPlayers: [this.player0.address, this.player1.address, this.player2.address],
+      hookPermissions: 0n,
+      inputData: inputData,
+      inputProof: encryptedDeck.inputProof
+    };
+
+    let tx = await this.cardEngine.connect(this.alice).createGame(createGameParams);
     await tx.wait();
 
     tx = await this.cardEngine.connect(this.player0).joinGame(1);
@@ -80,83 +82,110 @@ describe('Engine', function () {
     console.log("Alice address", this.alice.address);
     tx = await this.cardEngine.connect(this.alice).startGame(1);
     await tx.wait();
-
-    tx = await this.cardEngine.connect(this.player0).executeMove(1, 2n);
-    await tx.wait();
-    tx = await this.cardEngine.connect(this.player1).executeMove(1, 2n);
-    await tx.wait();
-    tx = await this.cardEngine.connect(this.player2).executeMove(1, 2n);
-    await tx.wait();
-    tx = await this.cardEngine.connect(this.player0).executeMove(1, 2n);
-    await tx.wait();
-    tx = await this.cardEngine.connect(this.player1).executeMove(1, 2n);
-    await tx.wait();
-    tx = await this.cardEngine.connect(this.player2).executeMove(1, 2n);
-    await tx.wait();
-    tx = await this.cardEngine.connect(this.player0).executeMove(1, 2n);
-    await tx.wait();
-    tx = await this.cardEngine.connect(this.player1).executeMove(1, 2n);
-    await tx.wait();
-    tx = await this.cardEngine.connect(this.player2).executeMove(1, 2n);
-
+    console.log("Alice address0", this.alice.address);
     tx = await this.cardEngine.connect(this.player0).commitMove(1, 0, 0, "0x");
     tx.wait();
     await fhevm.awaitDecryptionOracle();
+    console.log("Alice address1", this.alice.address);
+    tx = await this.cardEngine.connect(this.player2).commitMove(1, 0, 2, "0x");
+    tx.wait();
+    await fhevm.awaitDecryptionOracle();
+    console.log("Alice address2", this.alice.address);
+    tx = await this.cardEngine.connect(this.player0).commitMove(1, 0, 3, "0x");
+    tx.wait();
+    await fhevm.awaitDecryptionOracle();
+    console.log("Alice address3", this.alice.address);
+    tx = await this.cardEngine.connect(this.player1).commitMove(1, 0, 4, "0x");
+    tx.wait();
+    await fhevm.awaitDecryptionOracle();
+    console.log("Alice address4", this.alice.address);
+    tx = await this.cardEngine.connect(this.player2).executeMove(1, 2n, "0x");
+    await tx.wait();
+
+    // tx = await this.cardEngine.connect(this.player0).executeMove(1, 2n, "0x");
+    // await tx.wait();
+    console.log("Alice address5", this.alice.address);
+    tx = await this.cardEngine.connect(this.player1).commitMove(1, 0, 1, "0x");
+    tx.wait();
+    await fhevm.awaitDecryptionOracle();
+    
+
+    // tx = await this.cardEngine.connect(this.player0).executeMove(1, 2n, "0x");
+    // await tx.wait();
+    // tx = await this.cardEngine.connect(this.player1).executeMove(1, 2n, "0x");
+    // await tx.wait();
+    // tx = await this.cardEngine.connect(this.player2).executeMove(1, 2n, "0x");
+    // await tx.wait();
+    // tx = await this.cardEngine.connect(this.player0).executeMove(1, 2n, "0x");
+    // await tx.wait();
+    // tx = await this.cardEngine.connect(this.player1).executeMove(1, 2n, "0x");
+    // await tx.wait();
+    // tx = await this.cardEngine.connect(this.player2).executeMove(1, 2n, "0x");
+    // await tx.wait();
+    // tx = await this.cardEngine.connect(this.player0).executeMove(1, 2n, "0x");
+    // await tx.wait();
+    // tx = await this.cardEngine.connect(this.player1).executeMove(1, 2n, "0x");
+    // await tx.wait();
+    // tx = await this.cardEngine.connect(this.player2).executeMove(1, 2n, "0x");
+
+    // tx = await this.cardEngine.connect(this.player0).commitMove(1, 0, 0, "0x");
+    // tx.wait();
+    // await fhevm.awaitDecryptionOracle();
+
+    // // tx = await this.cardEngine.connect(this.player1).commitMove(1, 0, 1, "0x");
+    // // tx.wait();
+    // // await fhevm.awaitDecryptionOracle();
+
+    // tx = await this.cardEngine.connect(this.player2).commitMove(1, 0, 2, "0x");
+    // tx.wait();
+    // await fhevm.awaitDecryptionOracle();
+
+    // tx = await this.cardEngine.connect(this.player0).commitMove(1, 0, 3, "0x");
+    // tx.wait();
+    // await fhevm.awaitDecryptionOracle();
 
     // tx = await this.cardEngine.connect(this.player1).commitMove(1, 0, 1, "0x");
     // tx.wait();
     // await fhevm.awaitDecryptionOracle();
 
-    tx = await this.cardEngine.connect(this.player2).commitMove(1, 0, 2, "0x");
-    tx.wait();
-    await fhevm.awaitDecryptionOracle();
+    // tx = await this.cardEngine.connect(this.player2).executeMove(1, 3n, "0x");
+    // tx.wait();
+    // // await fhevm.awaitDecryptionOracle();
 
-    tx = await this.cardEngine.connect(this.player0).commitMove(1, 0, 3, "0x");
-    tx.wait();
-    await fhevm.awaitDecryptionOracle();
-
-    tx = await this.cardEngine.connect(this.player1).commitMove(1, 0, 1, "0x");
-    tx.wait();
-    await fhevm.awaitDecryptionOracle();
-
-    tx = await this.cardEngine.connect(this.player2).executeMove(1, 3n);
-    tx.wait();
+    // tx = await this.cardEngine.connect(this.player0).commitMove(1, 0, 6, "0x");
+    // tx.wait();
     // await fhevm.awaitDecryptionOracle();
 
-    tx = await this.cardEngine.connect(this.player0).commitMove(1, 0, 6, "0x");
-    tx.wait();
-    await fhevm.awaitDecryptionOracle();
+    // tx = await this.cardEngine.connect(this.player1).commitMove(1, 0, 7, "0x");
+    // tx.wait();
+    // await fhevm.awaitDecryptionOracle();
 
-    tx = await this.cardEngine.connect(this.player1).commitMove(1, 0, 7, "0x");
-    tx.wait();
-    await fhevm.awaitDecryptionOracle();
+    // tx = await this.cardEngine.connect(this.player1).commitMove(1, 0, 10, "0x");
+    // tx.wait();
+    // await fhevm.awaitDecryptionOracle();
 
-    tx = await this.cardEngine.connect(this.player1).commitMove(1, 0, 10, "0x");
-    tx.wait();
-    await fhevm.awaitDecryptionOracle();
+    // tx = await this.cardEngine.connect(this.player2).commitMove(1, 0, 5, "0x");
+    // tx.wait();
+    // await fhevm.awaitDecryptionOracle();
 
-    tx = await this.cardEngine.connect(this.player2).commitMove(1, 0, 5, "0x");
-    tx.wait();
-    await fhevm.awaitDecryptionOracle();
+    // tx = await this.cardEngine.connect(this.player0).commitMove(1, 0, 9, "0x");
+    // tx.wait();
+    // await fhevm.awaitDecryptionOracle();
 
-    tx = await this.cardEngine.connect(this.player0).commitMove(1, 0, 9, "0x");
-    tx.wait();
-    await fhevm.awaitDecryptionOracle();
+    // tx = await this.cardEngine.connect(this.player1).commitMove(1, 0, 4, "0x");
+    // tx.wait();
+    // await fhevm.awaitDecryptionOracle();
 
-    tx = await this.cardEngine.connect(this.player1).commitMove(1, 0, 4, "0x");
-    tx.wait();
-    await fhevm.awaitDecryptionOracle();
+    // tx = await this.cardEngine.connect(this.player2).commitMove(1, 0, 8, "0x");
+    // tx.wait();
+    // await fhevm.awaitDecryptionOracle();
 
-    tx = await this.cardEngine.connect(this.player2).commitMove(1, 0, 8, "0x");
-    tx.wait();
-    await fhevm.awaitDecryptionOracle();
+    // tx = await this.cardEngine.connect(this.player0).executeMove(1, 2n, "0x");
+    // await tx.wait();
 
-    tx = await this.cardEngine.connect(this.player0).executeMove(1, 2n);
-    await tx.wait();
-
-    tx = await this.cardEngine.connect(this.player1).commitMove(1, 0, 13, "0x");
-    tx.wait();
-    await fhevm.awaitDecryptionOracle();
+    // tx = await this.cardEngine.connect(this.player1).commitMove(1, 0, 13, "0x");
+    // tx.wait();
+    // await fhevm.awaitDecryptionOracle();
 
     await fhevm.awaitDecryptionOracle();
 

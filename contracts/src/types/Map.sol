@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {LibBit} from "solady/src/utils/LibBit.sol";
 import "hardhat/console.sol";
+import {LibBit} from "solady/src/utils/LibBit.sol";
 
 type DeckMap is uint64;
 // deckMap, mapSize, len
@@ -345,47 +345,42 @@ library PlayerStoreMapLib {
 
     // function isValidIndex(PlayerStoreMap playerStoreMap, uint256 idx) internal returns (bool) {}
 
-    function getNextIndexFrom_RL(
-    PlayerStoreMap playerStoreMap,
-    uint8 startIdx
-) internal pure returns (uint8 nextIdx) {
-    uint8 map = playerStoreMap.rawMap();
-    if (map == 0) revert MapIsEmpty(playerStoreMap);
-    // optional: require(startIdx < 8, "startIdx out of range");
+    function getNextIndexFrom_RL(PlayerStoreMap playerStoreMap, uint8 startIdx) internal pure returns (uint8 nextIdx) {
+        uint8 map = playerStoreMap.rawMap();
+        if (map == 0) revert MapIsEmpty(playerStoreMap);
+        // optional: require(startIdx < 8, "startIdx out of range");
 
-    unchecked {
-        // Rotate RIGHT by (startIdx + 1) so the *next* seat becomes bit 0.
-        uint8 shift  = (startIdx + 1) & 0x07;
-        uint8 rotate = uint8(((uint256(map) >> shift) | (uint256(map) << (8 - shift))) & 0xFF);
+        unchecked {
+            // Rotate RIGHT by (startIdx + 1) so the *next* seat becomes bit 0.
+            uint8 shift = (startIdx + 1) & 0x07;
+            uint8 rotate = uint8(((uint256(map) >> shift) | (uint256(map) << (8 - shift))) & 0xFF);
 
-        // Isolate lowest set bit (rotate != 0 since map != 0)
-        uint8 lsb = rotate & (~rotate + 1);
+            // Isolate lowest set bit (rotate != 0 since map != 0)
+            uint8 lsb = rotate & (~rotate + 1);
 
-        // 8-bit De Bruijn fold; keys: {0,1,3,7,14,29,58,116} → mask to 5 bits
-        uint8 key5 = uint8(((uint256(lsb) * 0x1d) >> 5) & 31);
+            // 8-bit De Bruijn fold; keys: {0,1,3,7,14,29,58,116} → mask to 5 bits
+            uint8 key5 = uint8(((uint256(lsb) * 0x1d) >> 5) & 31);
 
-        // Map residues → bit index (0..7)
-        uint8 idx;
-        assembly {
-            // residues: 0,1,3,7,14,29,26,20  -> indexes: 0..7
-            switch key5
-            case 0  { idx := 0 }
-            case 1  { idx := 1 }
-            case 3  { idx := 2 }
-            case 7  { idx := 3 }
-            case 14 { idx := 4 }
-            case 29 { idx := 5 }
-            case 26 { idx := 6 }
-            case 20 { idx := 7 }
-            default { idx := 0 } // unreachable for valid lsb
+            // Map residues → bit index (0..7)
+            uint8 idx;
+            assembly {
+                // residues: 0,1,3,7,14,29,26,20  -> indexes: 0..7
+                switch key5
+                case 0 { idx := 0 }
+                case 1 { idx := 1 }
+                case 3 { idx := 2 }
+                case 7 { idx := 3 }
+                case 14 { idx := 4 }
+                case 29 { idx := 5 }
+                case 26 { idx := 6 }
+                case 20 { idx := 7 }
+                default { idx := 0 } // unreachable for valid lsb
+            }
+
+            // Undo the rotation offset: (startIdx + 1 + idx) mod 8
+            nextIdx = uint8((uint16(startIdx) + 1 + idx) & 7);
         }
-
-        // Undo the rotation offset: (startIdx + 1 + idx) mod 8
-        nextIdx = uint8((uint16(startIdx) + 1 + idx) & 7);
     }
-}
-
-
 
     // function getNextIndexFrom_LR(PlayerStoreMap playerStoreMap, uint256 startIdx)
     //     internal
