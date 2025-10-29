@@ -128,6 +128,11 @@ library CardEngineLib {
         $.players[playerIndex].score = playerScore;
     }
 
+    function grantAccessToHand(PlayerData memory p, address grantee) internal {
+        FHE.allowTransient(p.hand[0], grantee);
+        FHE.allowTransient(p.hand[1], grantee);
+    }
+
     function getCardToCommit(GameData storage $, DeckMap playerDeckMap, uint256 cardIdx) internal returns (euint8) {
         DeckMap marketDeckMap = $.marketDeckMap;
         uint256 cardSize = marketDeckMap.getDeckCardSize();

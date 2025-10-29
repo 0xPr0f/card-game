@@ -7,12 +7,14 @@ import {Action as GameAction, PendingAction as GamePendingAction} from "../libra
 import {ConditionalsLib} from "../libraries/ConditionalsLib.sol";
 import {Card, WhotCardStandardLibx8} from "../types/Card.sol";
 import {PlayerStoreMap} from "../types/Map.sol";
+import {euint256, FHE} from "@fhevm/solidity/lib/FHE.sol";
+import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 
 import "hardhat/console.sol";
 
 // This contract contains the rules for the Whot game.
 // It includes functions to validate moves, check game state, etc.
-contract WhotRuleset is IRuleset {
+contract WhotRuleset is IRuleset, SepoliaConfig {
     using ConditionalsLib for *;
     using WhotCardStandardLibx8 for Card;
 
@@ -24,7 +26,7 @@ contract WhotRuleset is IRuleset {
     }
 
     // Example function to validate a move
-    function resolveMove(ResolveMoveParams memory params) public pure returns (Effect memory effect) {
+    function resolveMove(ResolveMoveParams memory params) public   returns (Effect memory effect) {
         Action[] memory actionsToExec = new Action[](1);
         if (params.gameAction.eqs(GameAction.Play)) {
             if (!params.callCard.matchWhot(params.card)) {

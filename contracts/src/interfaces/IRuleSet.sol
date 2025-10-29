@@ -54,7 +54,7 @@ interface IRuleset {
         bytes extraData;
     }
 
-    function resolveMove(ResolveMoveParams memory params) external view returns (Effect memory);
+    function resolveMove(ResolveMoveParams memory params) external returns (Effect memory);
     function computeStartIndex(PlayerStoreMap playerStoreMap) external view returns (uint8 startIndex);
     function computeNextTurnIndex(PlayerStoreMap playerStoreMap, uint256 currentPlayerIndex)
         external
