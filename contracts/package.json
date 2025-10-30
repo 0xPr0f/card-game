@@ -4,8 +4,8 @@
   "description": "Cards Smart Contracts",
   "private": true,
   "scripts": {
-    "compile": "forge build",
-    "test": "forge test"
+    "compile": "hardhat compile",
+    "test": "hardhat test"
   },
   "devDependencies": {
     "@fhevm/hardhat-plugin": "^0.1.0",

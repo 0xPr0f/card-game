@@ -7,8 +7,9 @@ import {Action as GameAction, PendingAction as GamePendingAction} from "../libra
 import {ConditionalsLib} from "../libraries/ConditionalsLib.sol";
 import {Card, WhotCardStandardLibx8} from "../types/Card.sol";
 import {PlayerStoreMap} from "../types/Map.sol";
-import {euint256, FHE} from "@fhevm/solidity/lib/FHE.sol";
+
 import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
+import {FHE, euint256} from "@fhevm/solidity/lib/FHE.sol";
 
 import "hardhat/console.sol";
 
@@ -26,7 +27,7 @@ contract WhotRuleset is IRuleset, SepoliaConfig {
     }
 
     // Example function to validate a move
-    function resolveMove(ResolveMoveParams memory params) public   returns (Effect memory effect) {
+    function resolveMove(ResolveMoveParams memory params) public returns (Effect memory effect) {
         Action[] memory actionsToExec = new Action[](1);
         if (params.gameAction.eqs(GameAction.Play)) {
             if (!params.callCard.matchWhot(params.card)) {
