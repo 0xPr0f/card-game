@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {EInputData} from "../base/EInputHandler.sol";
-import {Action, GameStatus, PendingAction} from "../libraries/CardEngineLib.sol";
+import {Action, GameStatus, PendingAction, PlayerData} from "../libraries/CardEngineLib.sol";
 import {Card} from "../types/Card.sol";
 
 import {HookPermissions} from "../types/Hook.sol";
@@ -35,10 +35,7 @@ interface ICardEngine {
         external
         view
         returns (DeckMap deckMap, euint256[2] memory hand);
-    function getPlayerData(uint256 gameId, uint256 playerIndex)
-        external
-        view
-        returns (address playerAddr, DeckMap deckMap, uint8 pendingAction, uint16 score, euint256[2] memory hand);
+    function getPlayerData(uint256 gameId, uint256 playerIndex) external view returns (PlayerData memory player);
     function getGameData(uint256 gameId)
         external
         view

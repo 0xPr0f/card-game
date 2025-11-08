@@ -50,19 +50,23 @@ struct PlayerData {
     euint256[2] hand;
 }
 
+struct PlayerScoreData {
+    address playerAddr;
+    DeckMap deckMap;
+    uint256 score;
+}
+
 struct GameData {
     address gameCreator;
     Card callCard;
     uint8 playerTurnIdx;
     GameStatus status;
     uint40 lastMoveTimestamp;
-    // maxPlayers | playersLeftToJoin;
-    uint8 packedJoinCapacity;
+    uint8 packedJoinCapacity; // maxPlayers | playersLeftToJoin;
     uint8 numProposedPlayers;
     HookPermissions hookPermissions;
     PlayerStoreMap playerStoreMap;
-    // card size
-    IRuleset ruleSet;
+    IRuleset ruleset;
     DeckMap marketDeckMap;
     uint8 initialHandSize;
     euint256[2] marketDeck;
@@ -103,13 +107,11 @@ library CardEngineLib {
         $.players[index].score = MAX_UINT16;
     }
 
-    function calculateAndSetPlayerScore(
-        GameData storage $,
-        PlayerData memory player,
-        uint256 playerIndex,
-        uint256[2] memory marketDeck
-    ) internal returns (uint16 playerScore) {
-        // PlayerData memory player = $.players[playerIndex];
+    function calculateAndSetPlayerScore(GameData storage $, uint256 playerIndex, uint256[2] memory marketDeck)
+        internal
+        returns (uint16 playerScore)
+    {
+        PlayerData memory player = $.players[playerIndex];
         DeckMap playerDeckMap = player.deckMap;
         uint256[] memory cardIndexes = playerDeckMap.getNonEmptyIdxs();
 
@@ -122,7 +124,7 @@ library CardEngineLib {
             uint256 rawCard =
                 (marketDeck[marketDeckIdx / numCardsIn0] >> ((marketDeckIdx % numCardsIn0) * cardSize)) & mask;
             Card card = CardLib.toCard(uint8(rawCard));
-            (, uint256 cardValue) = $.ruleSet.getCardAttributes(card, cardSize);
+            (, uint256 cardValue) = $.ruleset.getCardAttributes(card, cardSize);
             playerScore += uint16(cardValue);
         }
         $.players[playerIndex].score = playerScore;
@@ -382,7 +384,6 @@ library CardEngineLib {
                 $.players[i] = player;
             }
         }
-
         // $.marketDeckMap = marketDeckMap;
         return marketDeckMap;
     }
@@ -402,5 +403,18 @@ library CardEngineLib {
         }
     }
 
-    function resolvePending(GameData storage $, uint256 playerIdx) internal {}
+    function resolvePending(GameData storage $, uint256 currentIdx, DeckMap marketDeckMap, uint8 pendingAction)
+        internal
+        returns (DeckMap)
+    {
+        // uint8 pendingAction = $.players[currentIdx].pendingAction;
+        if (pendingAction > 0) {
+            if (pendingAction != 0) {
+                marketDeckMap = $.deal(currentIdx, marketDeckMap);
+            } else {
+                marketDeckMap = $.dealPickN(currentIdx, marketDeckMap, uint256(pendingAction));
+            }
+        }
+        return marketDeckMap;
+    }
 }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {IManagerHook, IManagerView} from "../interfaces/IManager.sol";
-import {Action} from "../libraries/CardEngineLib.sol";
+import {Action, PlayerScoreData} from "../libraries/CardEngineLib.sol";
 import {Card} from "../types/Card.sol";
 import {DeckMap} from "../types/Map.sol";
 
@@ -29,7 +29,7 @@ library Hook {
         IManagerHook hook,
         HookPermissions permissions,
         uint256 gameId,
-        uint256[] memory playersData,
+        PlayerScoreData[] memory playersData,
         uint256[2] memory marketDeck
     ) internal {}
     function hasSpecialMoves(

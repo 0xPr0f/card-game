@@ -36,6 +36,7 @@ interface IRuleset {
         Action[] actions;
         Card callCard;
         uint8 nextPlayerIndex;
+        bool togglePSMDirection;
         bool currentPlayerExit;
     }
 

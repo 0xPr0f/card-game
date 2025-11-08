@@ -5,19 +5,14 @@ import {IRNG} from "../interfaces/IRNG.sol";
 import {IRuleset} from "../interfaces/IRuleset.sol";
 import {Action as GameAction, PendingAction as GamePendingAction} from "../libraries/CardEngineLib.sol";
 import {ConditionalsLib} from "../libraries/ConditionalsLib.sol";
-import {Card, WhotCardStandardLibx8} from "../types/Card.sol";
+import {Card, WhotCardStandardLibx8 as Whot} from "../types/Card.sol";
 import {PlayerStoreMap} from "../types/Map.sol";
-
-import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
-import {FHE, euint256} from "@fhevm/solidity/lib/FHE.sol";
 
 import "hardhat/console.sol";
 
-// This contract contains the rules for the Whot game.
-// It includes functions to validate moves, check game state, etc.
-contract WhotRuleset is IRuleset, SepoliaConfig {
+contract WhotRuleset is IRuleset {
     using ConditionalsLib for *;
-    using WhotCardStandardLibx8 for Card;
+    using Whot for Card;
 
     uint256 constant CARD_SIZE_8 = 8;
     IRNG internal rng;
@@ -26,12 +21,16 @@ contract WhotRuleset is IRuleset, SepoliaConfig {
         rng = IRNG(_rng);
     }
 
-    // Example function to validate a move
-    function resolveMove(ResolveMoveParams memory params) public returns (Effect memory effect) {
+    modifier onlyCardEngine() {
+        require(msg.sender == address(this), "Only Card Engine can call");
+        _;
+    }
+
+    function resolveMove(ResolveMoveParams memory params) public onlyCardEngine returns (Effect memory effect) {
         Action[] memory actionsToExec = new Action[](1);
         if (params.gameAction.eqs(GameAction.Play)) {
             if (!params.callCard.matchWhot(params.card)) {
-                revert("Cards dont match");
+                revert("Cards don't match");
             }
             effect.callCard = params.callCard;
             if (params.card.pickTwo()) {
@@ -40,18 +39,18 @@ contract WhotRuleset is IRuleset, SepoliaConfig {
                 } else {
                     actionsToExec[0].op = EngineOp.PickPendingTwo;
                 }
-                uint8 nextTurn = params.playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex);
+                uint8 nextTurn = params.playerStoreMap.getNextIndex(params.currentPlayerIndex);
                 actionsToExec[0].againstPlayerIndex = nextTurn; // Set turn to 1 for pick action
                 effect.nextPlayerIndex = nextTurn;
             } else if (params.card.pickThree() && params.isSpecial) {
                 actionsToExec[0].op = EngineOp.PickPendingThree;
-                uint8 nextTurn = params.playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex);
+                uint8 nextTurn = params.playerStoreMap.getNextIndex(params.currentPlayerIndex);
                 actionsToExec[0].againstPlayerIndex = nextTurn;
                 effect.nextPlayerIndex = nextTurn;
             } else if (params.card.holdOn()) {
                 PlayerStoreMap playerStoreMap = params.playerStoreMap;
                 effect.nextPlayerIndex =
-                    playerStoreMap.getNextIndexFrom_RL(playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex)); // Set turn to 1 for hold on op
+                    playerStoreMap.getNextIndex(playerStoreMap.getNextIndex(params.currentPlayerIndex)); // Set turn to 1 for hold on op
             } else if (params.card.suspension()) {
                 effect.nextPlayerIndex = params.currentPlayerIndex; // Set turn to 0 for suspension op
             } else if (params.card.generalMarket()) {
@@ -59,18 +58,18 @@ contract WhotRuleset is IRuleset, SepoliaConfig {
                 actionsToExec[0].againstPlayerIndex = type(uint8).max; // Set turn to 0 for general market op
                 effect.nextPlayerIndex = params.currentPlayerIndex;
             } else if (params.card.iWish()) {
-                (WhotCardStandardLibx8.CardShape wishShape) =
-                    abi.decode(params.extraData, (WhotCardStandardLibx8.CardShape));
-                effect.callCard = WhotCardStandardLibx8.makeWhotWish(wishShape);
+                (Whot.CardShape wishShape) = abi.decode(params.extraData, (Whot.CardShape));
+                effect.callCard = Whot.makeWhotWish(wishShape);
             } else {
-                uint8 nextTurn = params.playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex);
+                uint8 nextTurn = params.playerStoreMap.getNextIndex(params.currentPlayerIndex);
                 effect.nextPlayerIndex = nextTurn; // Normal play, just advance turn
             }
         } else if (params.gameAction.eqs(GameAction.Defend)) {
+            effect.callCard = params.callCard;
             if (!params.isSpecial) {
-                revert(); //revert DefenseNotEnabled();
+                revert("Defense not enabled");
             }
-            uint8 nextTurn = params.playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex);
+            uint8 nextTurn = params.playerStoreMap.getNextIndex(params.currentPlayerIndex);
             if (params.pendingAction == 4) {
                 actionsToExec[0].op = EngineOp.PickTwo;
                 actionsToExec[0].againstPlayerIndex = params.currentPlayerIndex;
@@ -79,19 +78,21 @@ contract WhotRuleset is IRuleset, SepoliaConfig {
         } else if (params.gameAction.eqs(GameAction.Draw)) {
             actionsToExec[0].op = EngineOp.PickOne;
             actionsToExec[0].againstPlayerIndex = params.currentPlayerIndex;
-            uint8 nextTurn = params.playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex);
+            uint8 nextTurn = params.playerStoreMap.getNextIndex(params.currentPlayerIndex);
             effect.nextPlayerIndex = nextTurn; // Normal play, just advance turn
         } else if (params.gameAction.eqs(GameAction.Pick)) {
             actionsToExec[0].op = EngineOp(params.pendingAction % 8);
             actionsToExec[0].againstPlayerIndex = params.currentPlayerIndex;
-            uint8 nextTurn = params.playerStoreMap.getNextIndexFrom_RL(params.currentPlayerIndex);
+            uint8 nextTurn = params.playerStoreMap.getNextIndex(params.currentPlayerIndex);
             effect.nextPlayerIndex = nextTurn; // Normal play, just advance turn
+        } else {
+            revert("Invalid action");
         }
         effect.actions = actionsToExec;
     }
 
     function computeStartIndex(PlayerStoreMap playerStoreMap) public view returns (uint8 startIdx) {
-        // return uint8(rng.generatePseudoRandomNumber() % playerStoreMap.len());
+        return uint8(rng.generatePseudoRandomNumber() % playerStoreMap.len());
     }
 
     function computeNextTurnIndex(PlayerStoreMap playerStoreMap, uint256 currentPlayerIndex)
@@ -99,10 +100,12 @@ contract WhotRuleset is IRuleset, SepoliaConfig {
         pure
         returns (uint8 nextTurnIdx)
     {
-        return playerStoreMap.getNextIndexFrom_RL(uint8(currentPlayerIndex));
+        return playerStoreMap.getNextIndex(uint8(currentPlayerIndex));
     }
 
-    function isSpecialMoveCard(Card card) public pure returns (bool) {}
+    function isSpecialMoveCard(Card card) public pure returns (bool) {
+        return false;
+    }
 
     function getCardAttributes(Card card, uint256)
         /**

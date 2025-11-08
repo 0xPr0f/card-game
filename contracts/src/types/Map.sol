@@ -241,7 +241,7 @@ library PlayerStoreMapLib {
     error MapIsEmpty(PlayerStoreMap);
 
     function rawMap(PlayerStoreMap playerStoreMap) internal pure returns (uint8) {
-        return PlayerStoreMap.unwrap(playerStoreMap);
+        return PlayerStoreMap.unwrap(playerStoreMap) >> 2;
     }
 
     function isEmpty(PlayerStoreMap playerStoreMap, uint256 idx) internal pure returns (bool) {
@@ -260,14 +260,15 @@ library PlayerStoreMapLib {
         return playerStoreMap.rawMap() != 0;
     }
 
-    // function len(PlayerStoreMap playerStoreMap) internal pure returns (uint256) {
-    //     return PlayerStoreMap.unwrap(playerStoreMap) & 0x0f;
-    // }
+    function direction(PlayerStoreMap playerStoreMap) internal pure returns (uint8) {
+        return uint8(PlayerStoreMap.unwrap(playerStoreMap) & 1);
+    }
 
     function len(PlayerStoreMap playerStoreMap) internal pure returns (uint256 count) {
+        uint8 map = playerStoreMap.rawMap();
         assembly {
-            let lo := and(playerStoreMap, 0x0f)
-            let hi := shr(0x04, playerStoreMap)
+            let lo := and(map, 0x0f)
+            let hi := shr(0x04, map)
             // forgefmt: disable-next-item
             count := add(
                     byte(lo, 0x0001010201020203010202030203030400000000000000000000000000000000),
@@ -275,10 +276,6 @@ library PlayerStoreMapLib {
                 )
         }
     }
-
-    // function getNumProposedPlayers(PlayerStoreMap playerStoreMap) internal pure returns (uint8 num) {
-    //     num = (playerStoreMap.rawMap() >> 4) & 0x0f;
-    // }
 
     function getNonEmptyIdxs(PlayerStoreMap playerStoreMap) internal pure returns (uint256[] memory) {
         uint256[] memory idxs = new uint256[](playerStoreMap.len());
@@ -308,7 +305,7 @@ library PlayerStoreMapLib {
         if (map.isNotEmpty(idx)) {
             revert IndexNotEmpty(idx); //("PlayerStoreMapLib: Idx already occupied");
         }
-        return PlayerStoreMap.wrap(uint8(map.rawMap() | (uint256(1) << idx)));
+        return PlayerStoreMap.wrap(uint8(PlayerStoreMap.unwrap(map) | (uint256(1) << idx)));
     }
 
     function removePlayer(PlayerStoreMap map, uint256 idx) internal pure returns (PlayerStoreMap) {
@@ -317,7 +314,7 @@ library PlayerStoreMapLib {
         if (map.isEmpty(idx)) {
             revert IndexIsEmpty(idx); //("PlayerStoreMapLib: Idx already empty");
         }
-        return PlayerStoreMap.wrap(uint8(map.rawMap() & ~(uint256(1) << idx)));
+        return PlayerStoreMap.wrap(uint8(PlayerStoreMap.unwrap(map) & ~(uint256(1) << idx)));
     }
 
     // function getActivePlayers(PlayerStoreMap playerStoreMap)
@@ -345,17 +342,27 @@ library PlayerStoreMapLib {
 
     // function isValidIndex(PlayerStoreMap playerStoreMap, uint256 idx) internal returns (bool) {}
 
-    function getNextIndexFrom_RL(PlayerStoreMap playerStoreMap, uint8 startIdx) internal pure returns (uint8 nextIdx) {
+    function toggleDirection(PlayerStoreMap playerStoreMap) internal pure returns (PlayerStoreMap) {
+        return PlayerStoreMap.wrap(PlayerStoreMap.unwrap(playerStoreMap) & 254 | (1 - playerStoreMap.direction()));
+    }
+
+    function getNextIndex(PlayerStoreMap playerStoreMap, uint8 startIdx) internal pure returns (uint8 nextIdx) {
         uint8 map = playerStoreMap.rawMap();
         if (map == 0) revert MapIsEmpty(playerStoreMap);
         // optional: require(startIdx < 8, "startIdx out of range");
 
-        unchecked {
-            // Rotate RIGHT by (startIdx + 1) so the *next* seat becomes bit 0.
-            uint8 shift = (startIdx + 1) & 0x07;
-            uint8 rotate = uint8(((uint256(map) >> shift) | (uint256(map) << (8 - shift))) & 0xFF);
+        bool leftToRight = playerStoreMap.direction() != 0;
 
-            // Isolate lowest set bit (rotate != 0 since map != 0)
+        unchecked {
+            // Shift so the *next* seat in the chosen direction becomes bit 0.
+            uint8 shift = (startIdx + 1) & 0x07;
+
+            // Directional rotate of the 8-bit map.
+            uint8 rotate = leftToRight
+                ? uint8(((uint256(map) << shift) | (uint256(map) >> (8 - shift))) & 0xFF) // L→R
+                : uint8(((uint256(map) >> shift) | (uint256(map) << (8 - shift))) & 0xFF); // R→L
+
+            // Isolate lowest set bit
             uint8 lsb = rotate & (~rotate + 1);
 
             // 8-bit De Bruijn fold; keys: {0,1,3,7,14,29,58,116} → mask to 5 bits
@@ -377,8 +384,10 @@ library PlayerStoreMapLib {
                 default { idx := 0 } // unreachable for valid lsb
             }
 
-            // Undo the rotation offset: (startIdx + 1 + idx) mod 8
-            nextIdx = uint8((uint16(startIdx) + 1 + idx) & 7);
+            // Undo rotation into original index space.
+            // L→R: (startIdx - 1 - idx) mod 8  ==  startIdx + 7 - idx
+            // R→L: (startIdx + 1 + idx) mod 8
+            nextIdx = leftToRight ? uint8((uint16(startIdx) + 7 - idx) & 7) : uint8((uint16(startIdx) + 1 + idx) & 7);
         }
     }
 

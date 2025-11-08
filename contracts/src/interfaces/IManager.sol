@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {Action} from "../libraries/CardEngineLib.sol";
+import {Action, PlayerScoreData} from "../libraries/CardEngineLib.sol";
 import {Card} from "../types/Card.sol";
 import {DeckMap} from "../types/Map.sol";
 
@@ -19,5 +19,6 @@ interface IManagerHook {
     function onExecuteMove(uint256 gameId, address player, Card playingCard, Action action, bool playerDeckMapEmpty)
         external
         returns (bool);
-    function onFinishGame(uint256 gameId, uint256[] calldata playersData, uint256[2] calldata marketDeck) external;
+    function onFinishGame(uint256 gameId, PlayerScoreData[] calldata playersData, uint256[2] calldata marketDeck)
+        external;
 }

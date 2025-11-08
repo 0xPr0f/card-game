@@ -55,6 +55,16 @@ library CacheManager {
         return uint8(CacheValue.unwrap(value) >> ptr) & 0xf;
     }
 
+    function storeBool(CacheValue value, uint8 ptr, bool b) internal pure returns (CacheValue newValue) {
+        assembly ("memory-safe") {
+            newValue := or(and(value, not(shl(ptr, 0x1))), shl(ptr, b))
+        }
+    }
+
+    function loadBool(CacheValue value, uint8 ptr) internal pure returns (bool) {
+        return (uint8(CacheValue.unwrap(value) >> ptr) & 0x1) == 1;
+    }
+
     function storeU8(CacheValue value, uint8 ptr, uint8 _uint8) internal pure returns (CacheValue newValue) {
         assembly ("memory-safe") {
             newValue := or(and(value, not(shl(ptr, 0xff))), shl(ptr, _uint8))

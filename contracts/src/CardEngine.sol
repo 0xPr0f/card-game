@@ -10,7 +10,15 @@ import {ADDRESS_MASK, U16_MASK, U64_MASK, U8_MASK} from "./helpers/Constants.sol
 import {ICardEngine} from "./interfaces/ICardEngine.sol";
 import {IManagerHook, IManagerView} from "./interfaces/IManager.sol";
 import {IRuleset} from "./interfaces/IRuleset.sol";
-import {Action, CardEngineLib, GameData, GameStatus, PendingAction, PlayerData} from "./libraries/CardEngineLib.sol";
+import {
+    Action,
+    CardEngineLib,
+    GameData,
+    GameStatus,
+    PendingAction,
+    PlayerData,
+    PlayerScoreData
+} from "./libraries/CardEngineLib.sol";
 import {ConditionalsLib} from "./libraries/ConditionalsLib.sol";
 import {Cache, CacheManager, CacheValue, GameCacheManager} from "./types/Cache.sol";
 import {Card, CardLib} from "./types/Card.sol";
@@ -26,14 +34,13 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
     using Hook for IManagerView;
 
     uint256 constant MAX_DELAY = 4 minutes;
-    // Max number of players in a game.
+    // max number of players in a game.
     uint256 constant MAX_PLAYERS_LEN = 8;
     uint256 constant MIN_PLAYERS_LEN = 2;
 
-    // game ID
-    uint256 internal _gameId = 1;
-
-    // Game Data.
+    // game id
+    uint256 private _gameId = 1;
+    // game data.
     mapping(uint256 gameId => GameData) private _game;
 
     /// ERRORS
@@ -42,8 +49,8 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
     error GameAlreadyStarted();
     error GameNotStarted();
     error NotPlayerTurn();
-    error ResolvePendingAction();
-    error NoPendingAction();
+    // error ResolvePendingAction();
+    // error NoPendingAction();
     error NotProposedPlayer(address player);
     error CannotStartGame();
     error PlayersLimitExceeded();
@@ -54,13 +61,13 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
     error InvalidPlayerIndex();
     error InvalidProposedPlayer();
     error CardSizeNotSupported();
-    error CallFailed();
+    // error CallFailed();
 
     /// EVENTS
     event PlayerForfeited(uint256 indexed gameId, uint256 playerIndex);
     event PlayerJoined(uint256 indexed gameId, address player);
     event MoveExecuted(uint256 indexed gameId, uint256 pTurnIndex, Action action);
-    event PendingActionFulfilled(uint256 indexed gameId, uint256 playerIndex, uint8 action);
+    // event PendingActionFulfilled(uint256 indexed gameId, uint256 playerIndex, uint8 action);
     event GameCreated(uint256 indexed gameId, address gameCreator);
     event GameStarted(uint256 indexed gameId);
     event GameEnded(uint256 indexed gameId);
@@ -80,7 +87,6 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
 
         for (uint256 i = 0; i < numProposedPlayers; i++) {
             address proposedPlayer = params.proposedPlayers[i];
-            if (msg.sender == proposedPlayer) revert InvalidProposedPlayer();
             game.isProposedPlayer[proposedPlayer] = true;
         }
         // load storage value from game slot + index 1.
@@ -91,6 +97,7 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         // initialize market deck map with card size and deck size.
         g.sdMarketDeckMap(CardEngineLib.initializeMarketDeckMap(params.cardDeckSize, params.cardBitSize));
         g.sdHandSize(params.initialHandSize); // set initial hand size.
+        // update storage slot.
         g.flush();
         // load storage value from game slot + index 0.
         g = GameCacheManager.ldCache(slot0(game));
@@ -100,6 +107,7 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         // `gameCreator` is the msg.sender if `enableManager` is true, otherwise it's address(0).
         g.sdGameCreator(msg.sender);
         g.sdHookPermissions(params.hookPermissions); // set initial hand size.
+        // update storage slot.
         g.flush();
         // initialize market deck.
         euint256[2] memory marketDeck = _handleInputData(params.inputData, params.inputProof);
@@ -124,7 +132,7 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         PlayerStoreMap playerStoreMap = g.ldPlayerStoreMap();
         uint8 playersLeftToJoin = g.ldPlayersLeftToJoin();
         address gameCreator = g.ldGameCreator();
-        // use player store map to check if player is already in game.
+        // check if player is already in game.
         if (game.isPlayerActive(playerToAdd, playerStoreMap)) revert PlayerAlreadyInGame();
         if (playerToAdd == gameCreator) revert InvalidProposedPlayer();
         // if player is not a proposed player and `proposed players` is not set, then check if max players limit has been reached.
@@ -176,9 +184,9 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
             g0.flush();
         }
 
+        uint256 playersLen = g0.ldPlayerStoreMap().len();
         DeckMap marketDeckMap = g1.ldMarketDeckMap();
         uint8 handSize = g1.ldHandSize();
-        uint256 playersLen = g0.ldPlayerStoreMap().len();
 
         for (uint256 i = 0; i < playersLen; i++) {
             game.setPlayerScoreToMin(i);
@@ -186,7 +194,6 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
             marketDeckMap = game.dealInitialHand(game.players[i], i, marketDeckMap, joined, handSize);
         }
 
-        // game.marketDeckMap = marketDeckMap;
         g1.sdMarketDeckMap(marketDeckMap);
         g1.flush();
 
@@ -209,28 +216,16 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         ensureGameStarted(g.ldStatus());
 
         uint256 currentTurnIndex = g.ldPlayerTurnIndex();
-        PlayerData storage _player = game.players[currentTurnIndex];
-        uint256 playerSlot;
-        // store only player address and deckMap.
-        assembly ("memory-safe") {
-            playerSlot := _player.slot
-            // mstore(player, and(value, ADDRESS_MASK))
-            // mstore(add(player, 0x20), and(shr(160, value), U64_MASK))
-        }
-        CacheValue playerCache = CacheManager.toCachedValue(playerSlot);
-        // load player's address at pos 0.
-        address playerAddr = playerCache.loadAddress(0);
-        // load player's address at pos 160.
-        DeckMap playerDeckMap = DeckMap.wrap(playerCache.loadU64(160));
+        (address playerAddr, DeckMap playerDeckMap,,,) = _getPlayerData(game, currentTurnIndex);
 
         ensureValidPlayer(game, playerAddr, g.ldPlayerStoreMap());
 
         if (!action.eqsOr(Action.Play, Action.Defend)) {
             revert InvalidGameAction(action);
         }
-        // get card to commit and updated player deck map.
+        // get card to commit.
         euint8 cardToCommit = game.getCardToCommit(playerDeckMap, cardIndex);
-        _commitMove(gameId, cardToCommit, action, cardIndex, currentTurnIndex, extraData);
+        _commitMove(gameId, cardToCommit, action, cardIndex, currentTurnIndex);
     }
 
     function executeMove(uint256 gameId, Action action, bytes memory extraData) external nonReentrant {
@@ -245,21 +240,50 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
 
         ensureGameStarted(g0.ldStatus());
         ensureValidPlayer(game, player.playerAddr, g0.ldPlayerStoreMap());
-        ensureNoCommittedAction(gameId);
+
+        HookPermissions hookPermissions = g0.ldHookPermissions();
+        address gameCreator = g0.ldGameCreator();
+        IRuleset ruleset = g1.ldRuleset();
+
+        IRuleset.ResolveMoveParams memory moveParams;
+        moveParams.gameAction = action;
+        moveParams.pendingAction = player.pendingAction;
+        moveParams.callCard = g0.ldCallCard();
+        moveParams.currentPlayerIndex = playerTurnIdx;
+        moveParams.playerStoreMap = g0.ldPlayerStoreMap();
+        moveParams.cardSize = g1.ldMarketDeckMap().getDeckCardSize();
+        moveParams.extraData = extraData;
 
         if (action.eqsOr(Action.Play, Action.Defend)) {
-            revert InvalidGameAction(action);
+            CommittedMoveData memory committedMove = getLatestCommittedMove(gameId);
+            moveParams.card = committedMove.decryptedCard;
+            moveParams.gameAction = committedMove.action;
+            (player.deckMap, player.hand) = game.updatePlayerHand(player, playerTurnIdx, committedMove.cardIndex);
+            // check if player is eligible for a special move. this is false by default if no hook is set.
+            if (ruleset.isSpecialMoveCard(moveParams.card)) {
+                moveParams.isSpecial = IManagerView(gameCreator).hasSpecialMoves(
+                    hookPermissions, gameId, player.playerAddr, moveParams.card, moveParams.gameAction
+                );
+            }
+            // clean up commitment.
+            _clearLatestCommittedMove(gameId);
+        } else {
+            ensureNoCommittedAction(gameId);
         }
-        // if action is draw, player must not have a pending action.
-        // if action is Pick, player must have a pending action.
-        drawOrPick(gameId, game, player, action, playerTurnIdx, g0, g1, extraData);
+
+        moveParams.playerDeckMap = player.deckMap;
+        moveParams.playerHand = player.hand;
+        player.grantAccessToHand(address(ruleset));
+        _executeMove(gameId, game, ruleset, moveParams, g0, g1);
+
         // update storage slots.
         g0.flush();
         g1.flush();
+
         // call `onExecuteMove` hook with an empty card since no card is played.
         // Card(0) represents an invaild or empty card.
-        bool canEndGame = IManagerHook(g0.ldGameCreator()).onExecuteMove(
-            g0.ldHookPermissions(), gameId, player.playerAddr, CardLib.toCard(0), action
+        bool canEndGame = IManagerHook(gameCreator).onExecuteMove(
+            hookPermissions, gameId, player.playerAddr, moveParams.card, moveParams.gameAction
         );
         // finally, check if game can end.
         finish(gameId, game, canEndGame, g0, g1);
@@ -288,6 +312,13 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         ensureGameStarted(g0.ldStatus());
 
         uint256 turnIdx = g0.ldPlayerTurnIndex();
+        // if player has a committed move that is not yet fulfilled, revert.
+        if (
+            hasCommittedMove(gameId) && !getCommittedMove(gameId).fulfilled
+                && turnIdx == getCommittedMove(gameId).playerIndex
+        ) {
+            revert PlayerAlreadyCommittedAction();
+        }
         uint40 lastMoveTimestamp = g0.ldLastMoveTimestamp();
         address player = game.players[turnIdx].playerAddr;
         // boot out a player if their last move timestamp + MAX_DELAY is less than the current block timestamp.
@@ -313,32 +344,11 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         override
     {
         CommittedMoveData memory committedMove = getCommittedMove(requestId);
-        // validate callback signature and that this is the latest request.
-        __validateCallbackSignature(requestId, clearTexts, committedMove.gameId, signatures);
-        GameData storage game = _game[committedMove.gameId];
-
-        uint8 rawCard = abi.decode(clearTexts, (uint8));
-        Card card = CardLib.toCard(rawCard);
-        // load storage value from game slot + index 0.
-        Cache memory g0 = GameCacheManager.ldCache(slot0(game));
-        // load storage value from game slot + index 1.
-        Cache memory g1 = GameCacheManager.ldCache(slot1(game));
-
-        address gameCreator = g0.ldGameCreator();
-        HookPermissions hookPermissions = g0.ldHookPermissions();
-        PlayerData memory player = game.players[committedMove.playerIndex];
-        // execute the move.
-        playCard(game, player, committedMove, card, gameCreator, hookPermissions, g0, g1);
-        // update storage slots.
-        g0.flush();
-        g1.flush();
-        // if game creator is set, call `onExecuteMove` hook.
-        bool endGame = IManagerHook(gameCreator).onExecuteMove(
-            hookPermissions, committedMove.gameId, player.playerAddr, card, committedMove.action
-        );
-        // clean up commitment and check if game can end.
-        _clearCommitment(committedMove.gameId, requestId);
-        finish(committedMove.gameId, game, endGame, g0, g1);
+        uint256 gameId = committedMove.gameId;
+        // validate the callback signature and ensure this is the latest request.
+        __validateCallbackSignature(requestId, clearTexts, gameId, signatures, true);
+        _fulfillCommittedMove(requestId, gameId, clearTexts);
+        _game[gameId].lastMoveTimestamp = uint40(block.timestamp);
     }
 
     function handleCommitMarketDeck(uint256 requestId, bytes memory clearTexts, bytes memory signatures)
@@ -348,24 +358,26 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         nonReentrant
     {
         CommittedMarketDeck memory cmd = getCommittedMarketDeck(requestId);
-        // validate callback signature and that this is the latest request.
-        __validateCallbackSignature(requestId, clearTexts, cmd.gameId, signatures);
+        // validate the callback signature and ensure this is the latest request.
+        __validateCallbackSignature(requestId, clearTexts, cmd.gameId, signatures, false);
         GameData storage game = _game[cmd.gameId];
         uint256[2] memory marketDeck = abi.decode(clearTexts, (uint256[2]));
+        DeckMap marketDeckMap = game.marketDeckMap;
 
         uint256 playersLen = game.players.length;
-        uint256[] memory playersData = new uint256[](playersLen);
+        PlayerScoreData[] memory playersData = new PlayerScoreData[](playersLen);
         for (uint256 i = 0; i < playersLen; i++) {
-            PlayerData memory player = game.players[i];
-            if (!player.forfeited) {
-                player.score = game.calculateAndSetPlayerScore(player, i, marketDeck);
+            (address playerAddr,, uint8 pendingAction,, bool forfeited) = _getPlayerData(game, i);
+            uint256 playerScore;
+            if (!forfeited) {
+                marketDeckMap = game.resolvePending(i, marketDeckMap, pendingAction);
+                playerScore = game.calculateAndSetPlayerScore(i, marketDeck);
             }
-            playersData[i] = (uint256(player.score) << 224) | uint256(DeckMap.unwrap(player.deckMap)) << 160
-                | uint256(uint160(player.playerAddr));
+            playersData[i] =
+                PlayerScoreData({playerAddr: playerAddr, deckMap: game.players[i].deckMap, score: playerScore});
         }
-        // call `onFinishGame` hook with players score data.
-        // players score data is computed as packed [score, address] value for each player in the game.
         Cache memory g = GameCacheManager.ldCache(slot0(game));
+        // call `onFinishGame` hook with players score data.
         IManagerHook(g.ldGameCreator()).onFinishGame(g.ldHookPermissions(), cmd.gameId, playersData, marketDeck);
     }
 
@@ -386,69 +398,6 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         }
     }
 
-    function playCard(
-        GameData storage game,
-        PlayerData memory player,
-        CommittedMoveData memory committedMove,
-        Card card,
-        address gameCreator,
-        HookPermissions hookPermissions,
-        Cache memory g0,
-        Cache memory g1
-    ) internal {
-        (player.deckMap, player.hand) =
-            game.updatePlayerHand(player, committedMove.playerIndex, committedMove.cardIndex);
-        IRuleset ruleset = g1.ldRuleset();
-        // check if player is eligible for a special move. this is false by default if no hook is set.
-        bool isEligibleForSpecialMove;
-        if (ruleset.isSpecialMoveCard(card)) {
-            isEligibleForSpecialMove = IManagerView(gameCreator).hasSpecialMoves(
-                hookPermissions, committedMove.gameId, player.playerAddr, card, committedMove.action
-            );
-        }
-        IRuleset.ResolveMoveParams memory moveParams = IRuleset.ResolveMoveParams({
-            gameAction: committedMove.action,
-            pendingAction: player.pendingAction,
-            card: card,
-            callCard: g0.ldCallCard(),
-            currentPlayerIndex: committedMove.playerIndex,
-            playerStoreMap: g0.ldPlayerStoreMap(),
-            playerDeckMap: player.deckMap,
-            playerHand: player.hand,
-            isSpecial: isEligibleForSpecialMove,
-            cardSize: g1.ldMarketDeckMap().getDeckCardSize(),
-            extraData: committedMove.extraData
-        });
-        player.grantAccessToHand(address(ruleset));
-        _executeMove(committedMove.gameId, game, ruleset, moveParams, g0, g1);
-    }
-
-    function drawOrPick(
-        uint256 gameId,
-        GameData storage game,
-        PlayerData memory player,
-        Action action,
-        uint8 currentIndex,
-        Cache memory g0,
-        Cache memory g1,
-        bytes memory extraData
-    ) internal {
-        IRuleset.ResolveMoveParams memory moveParams;
-        moveParams.gameAction = action;
-        moveParams.pendingAction = player.pendingAction;
-        moveParams.callCard = g0.ldCallCard();
-        moveParams.currentPlayerIndex = currentIndex;
-        moveParams.playerStoreMap = g0.ldPlayerStoreMap();
-        moveParams.playerDeckMap = player.deckMap;
-        moveParams.playerHand = player.hand;
-        moveParams.cardSize = g1.ldMarketDeckMap().getDeckCardSize();
-        moveParams.extraData = extraData;
-
-        IRuleset ruleset = g1.ldRuleset();
-        player.grantAccessToHand(address(ruleset));
-        _executeMove(gameId, game, ruleset, moveParams, g0, g1);
-    }
-
     function _forfeit(uint256 gameId, GameData storage game, uint256 playerIdx, IRuleset ruleset, Cache memory g0)
         internal
     {
@@ -457,7 +406,7 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         // if the forfeiting player is the current player, update the turn index to the next player.
         if (g0.ldPlayerTurnIndex() == playerIdx) {
             g0.sdPlayerTurnIndex(ruleset.computeNextTurnIndex(g0.ldPlayerStoreMap(), playerIdx));
-            _clearLatestCommittedMove(gameId, playerIdx);
+            _clearLatestCommittedMove(gameId);
         }
         emit PlayerForfeited(gameId, playerIdx);
     }
@@ -470,40 +419,44 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         Cache memory g0,
         Cache memory g1
     ) internal {
+        // clear pending action if any.
+        // if a player has a pending action, the ruleset determines whether and how it is resolved.
         if (moveParams.pendingAction != 0) {
             game.players[moveParams.currentPlayerIndex].pendingAction = 0;
         }
         // resolve move and get effect.
         IRuleset.Effect memory effect = ruleset.resolveMove(moveParams);
         // apply effect to game state.
-        _applyEffect(game, effect, moveParams.currentPlayerIndex, moveParams.playerStoreMap, g1);
-        // update player turn index here.
-        g0.sdPlayerTurnIndex(effect.nextPlayerIndex);
-        g0.sdCallCard(effect.callCard);
-        g0.sdLastMoveTimestamp(uint40(block.timestamp));
+        _applyEffect(game, effect, moveParams, g0, g1);
 
-        if (moveParams.playerDeckMap.isMapEmpty() || effect.currentPlayerExit) {
-            g0.sdPlayerStoreMap(moveParams.playerStoreMap.removePlayer(moveParams.currentPlayerIndex));
-        }
         emit MoveExecuted(gameId, moveParams.currentPlayerIndex, moveParams.gameAction);
     }
 
     function _applyEffect(
         GameData storage game,
         IRuleset.Effect memory effect,
-        uint256 currentPlayerIdx,
-        PlayerStoreMap playerStoreMap,
+        IRuleset.ResolveMoveParams memory moveParams,
+        Cache memory g0,
         Cache memory g1
     ) internal {
+        {
+            if (effect.togglePSMDirection) moveParams.playerStoreMap = moveParams.playerStoreMap.toggleDirection();
+
+            g0.sdPlayerStoreMap(moveParams.playerStoreMap);
+            // update player turn index here.
+            g0.sdPlayerTurnIndex(effect.nextPlayerIndex);
+            g0.sdCallCard(effect.callCard);
+            g0.sdLastMoveTimestamp(uint40(block.timestamp));
+        }
+
         IRuleset.Action[] memory rActions = effect.actions;
         DeckMap marketDeckMap = g1.ldMarketDeckMap();
 
         for (uint256 i = 0; i < rActions.length; i++) {
             // apply effect against player if any.
-            // IRuleset.EngineOp op = effect.op;
             if (rActions[i].op.notEqs(IRuleset.EngineOp.None)) {
-                uint8 _op = uint8(rActions[i].op);
-                bool dealPending = _op > 8;
+                uint8 op = uint8(rActions[i].op);
+                bool dealPending = op > 8;
                 uint8 againstPlayerIdx = rActions[i].againstPlayerIndex;
 
                 // `PendingPick` vs `Pick`: `PendingPick` are `Pick` actions that are not resolved immediately, but must be resolved
@@ -512,33 +465,74 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
                 // if `againstPlayerIdx` is not type(uint8).max, then apply effect against only `againstPlayerIdx`.
                 // otherwise, apply effect against all players.
                 if (againstPlayerIdx != type(uint8).max) {
-                    if (playerStoreMap.isEmpty(againstPlayerIdx)) {
+                    if (moveParams.playerStoreMap.isEmpty(againstPlayerIdx)) {
                         revert InvalidPlayerIndex();
                     }
                     if (dealPending) {
                         // if `dealPending` is true, then the against player is dealt the pending pick.
-                        game.dealPendingPickN(againstPlayerIdx, _op - 8);
+                        game.dealPendingPickN(againstPlayerIdx, op - 8);
                     } else {
                         // otherwise, the against player is dealt the normal pick.
-                        // PlayerData memory againstPlayer = game.players[againstPlayerIdx];
-                        if (_op == 1) {
-                            marketDeckMap = game.deal(againstPlayerIdx, marketDeckMap);
+                        if (op != 1) {
+                            marketDeckMap = game.dealPickN(againstPlayerIdx, marketDeckMap, op);
                         } else {
-                            marketDeckMap = game.dealPickN(againstPlayerIdx, marketDeckMap, _op);
+                            marketDeckMap = game.deal(againstPlayerIdx, marketDeckMap);
                         }
                     }
                 } else {
                     if (dealPending) {
                         // if `dealPending` is true, then all players are dealt the pending general market pick.
-                        game.dealPendingGeneralMarket(currentPlayerIdx, _op - 8, playerStoreMap);
+                        game.dealPendingGeneralMarket(moveParams.currentPlayerIndex, op - 8, moveParams.playerStoreMap);
                     } else {
                         // otherwise, all players are dealt the normal general market pick.
-                        marketDeckMap = game.dealGeneralMarket(currentPlayerIdx, _op, marketDeckMap, playerStoreMap);
+                        marketDeckMap = game.dealGeneralMarket(
+                            moveParams.currentPlayerIndex, op, marketDeckMap, moveParams.playerStoreMap
+                        );
                     }
                 }
             }
+            g1.sdMarketDeckMap(marketDeckMap);
         }
-        g1.sdMarketDeckMap(marketDeckMap);
+
+        (, DeckMap playerDeckMap, uint8 playerPendingAction,,) = _getPlayerData(game, moveParams.currentPlayerIndex);
+        if (playerDeckMap.isMapEmpty() || effect.currentPlayerExit) {
+            moveParams.playerStoreMap = moveParams.playerStoreMap.removePlayer(moveParams.currentPlayerIndex);
+            if (playerPendingAction != 0) {
+                // clean up pending action if any.
+                game.players[moveParams.currentPlayerIndex].pendingAction = 0;
+            }
+        }
+        if (effect.togglePSMDirection) moveParams.playerStoreMap = moveParams.playerStoreMap.toggleDirection();
+
+        g0.sdPlayerStoreMap(moveParams.playerStoreMap);
+        // update player turn index here.
+        g0.sdPlayerTurnIndex(effect.nextPlayerIndex);
+        g0.sdCallCard(effect.callCard);
+        g0.sdLastMoveTimestamp(uint40(block.timestamp));
+    }
+
+    function _getPlayerData(GameData storage game, uint256 playerIndex)
+        internal
+        view
+        returns (address playerAddr, DeckMap playerDeckMap, uint8 pendingAction, uint16 score, bool forfeited)
+    {
+        PlayerData storage _player = game.players[playerIndex];
+        uint256 playerSlot;
+        // store only player address and deckMap.
+        assembly ("memory-safe") {
+            playerSlot := _player.slot
+        }
+        CacheValue playerCache = CacheManager.toCachedValue(playerSlot);
+        // load player's address at pos 0.
+        playerAddr = playerCache.loadAddress(0);
+        // load player's address at pos 160.
+        playerDeckMap = DeckMap.wrap(playerCache.loadU64(160));
+        // load player's pending action at pos 224.
+        pendingAction = uint8(playerCache.loadU8(224));
+        // load player's score at pos 232.
+        score = uint16(playerCache.loadU16(232));
+        // load player's forfeited status at pos 248.
+        forfeited = playerCache.loadBool(248);
     }
 
     function ensureValidPlayer(GameData storage game, address currentPlayer, PlayerStoreMap playerStoreMap)
@@ -575,17 +569,8 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         return (player.deckMap, player.hand);
     }
 
-    function getPlayerData(uint256 gameId, uint256 playerIndex)
-        external
-        view
-        returns (address playerAddr, DeckMap deckMap, uint8 pendingAction, uint16 score, euint256[2] memory hand)
-    {
-        PlayerData memory player = _game[gameId].players[playerIndex];
-        playerAddr = player.playerAddr;
-        deckMap = player.deckMap;
-        pendingAction = player.pendingAction;
-        score = player.score;
-        hand = player.hand;
+    function getPlayerData(uint256 gameId, uint256 playerIndex) external view returns (PlayerData memory player) {
+        player = _game[gameId].players[playerIndex];
     }
 
     function getGameData(uint256 gameId)
