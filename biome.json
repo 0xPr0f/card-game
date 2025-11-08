@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "files": {
+    "includes": [
+      "**",
+      "!node_modules",
+      "!dist",
+      "!build",
+      "!.next",
+      "!out",
+      "!coverage",
+      "!.turbo",
+      "!.cache",
+      "!.vercel",
+      "!**/*.min.js"
+    ]
+  },
+  "overrides": [
+    {
+      "includes": ["contracts/types/**"],
+      "linter": {
+        "rules": {
+          "suspicious": { "noConfusingVoidType": "off", "noExplicitAny": "off" },
+          "complexity": { "noBannedTypes": "off" }
+        }
+      }
+    },
+    {
+      "includes": ["contracts/lib/**"],
+      "linter": { "enabled": false }
+    }
+  ],
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true }
+
+}
