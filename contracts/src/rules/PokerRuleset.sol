@@ -15,4 +15,4 @@ import "hardhat/console.sol";
 
 // This contract contains the rules for the Whot game.
 // It includes functions to validate moves, check game state, etc.
-contract MaoRuleset {}
+contract PokerRuleset {}

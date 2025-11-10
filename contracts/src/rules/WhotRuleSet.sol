@@ -76,12 +76,11 @@ contract WhotRuleset is IRuleset {
             }
             effect.nextPlayerIndex = nextTurn;
         } else if (params.gameAction.eqs(GameAction.Draw)) {
-            actionsToExec[0].op = EngineOp.PickOne;
-            actionsToExec[0].againstPlayerIndex = params.currentPlayerIndex;
-            uint8 nextTurn = params.playerStoreMap.getNextIndex(params.currentPlayerIndex);
-            effect.nextPlayerIndex = nextTurn; // Normal play, just advance turn
-        } else if (params.gameAction.eqs(GameAction.Pick)) {
-            actionsToExec[0].op = EngineOp(params.pendingAction % 8);
+            if (params.pendingAction > 0) {
+                actionsToExec[0].op = EngineOp(params.pendingAction % 8);
+            } else {
+                actionsToExec[0].op = EngineOp.PickOne;
+            }
             actionsToExec[0].againstPlayerIndex = params.currentPlayerIndex;
             uint8 nextTurn = params.playerStoreMap.getNextIndex(params.currentPlayerIndex);
             effect.nextPlayerIndex = nextTurn; // Normal play, just advance turn

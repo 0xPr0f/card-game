@@ -38,10 +38,8 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
     uint256 constant MAX_PLAYERS_LEN = 8;
     uint256 constant MIN_PLAYERS_LEN = 2;
 
-    // game id
-    uint256 private _gameId = 1;
-    // game data.
-    mapping(uint256 gameId => GameData) private _game;
+    uint256 private gId = 1; // game id counter.
+    mapping(uint256 gameId => GameData) private gd; // game data mapping.
 
     /// ERRORS
     error PlayerAlreadyInGame();
@@ -71,12 +69,13 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
     event GameCreated(uint256 indexed gameId, address gameCreator);
     event GameStarted(uint256 indexed gameId);
     event GameEnded(uint256 indexed gameId);
+    event MoveCommitted(uint256 indexed gameId, uint256 playerIndex, Action action);
 
     constructor() AsyncHandler() {}
 
     function createGame(CreateGameParams calldata params) public returns (uint256 gameId) {
-        gameId = _gameId;
-        GameData storage game = _game[gameId];
+        gameId = gId;
+        GameData storage game = gd[gameId];
         // if proposed players is set, then max players is the length of proposed players.
         // if proposed players is not set, then max players is the max players passed in.
         uint8 numProposedPlayers = uint8(params.proposedPlayers.length);
@@ -115,14 +114,14 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         game.marketDeck[1] = marketDeck[1];
 
         unchecked {
-            _gameId++;
+            gId++;
         }
 
         emit GameCreated(gameId, msg.sender);
     }
 
     function joinGame(uint256 gameId) public nonReentrant {
-        GameData storage game = _game[gameId];
+        GameData storage game = gd[gameId];
         // load storage value from game slot + index 0.
         Cache memory g = GameCacheManager.ldCache(slot0(game));
 
@@ -149,13 +148,13 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         } else {
             revert NotProposedPlayer(playerToAdd);
         }
-        // call `onJoinGame` hook.
+        // - call `onJoinGame` hook.
         IManagerHook(gameCreator).onJoinGame(g.ldHookPermissions(), gameId, playerToAdd);
         emit PlayerJoined(gameId, playerToAdd);
     }
 
     function startGame(uint256 gameId) external {
-        GameData storage game = _game[gameId];
+        GameData storage game = gd[gameId];
         // load storage value from game slot + index 0.
         Cache memory g0 = GameCacheManager.ldCache(slot0(game));
         // load storage value from game slot + index 1.
@@ -209,7 +208,7 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
     function commitMove(uint256 gameId, Action action, uint256 cardIndex, bytes memory extraData) external {
         ensureNoCommittedAction(gameId);
 
-        GameData storage game = _game[gameId];
+        GameData storage game = gd[gameId];
         // load storage value from game slot + index 0.
         Cache memory g = GameCacheManager.ldCache(slot0(game));
 
@@ -229,7 +228,7 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
     }
 
     function executeMove(uint256 gameId, Action action, bytes memory extraData) external nonReentrant {
-        GameData storage game = _game[gameId];
+        GameData storage game = gd[gameId];
         // load storage value from game slot + index 0.
         Cache memory g0 = GameCacheManager.ldCache(slot0(game));
         // load storage value from game slot + index 1.
@@ -254,6 +253,9 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         moveParams.cardSize = g1.ldMarketDeckMap().getDeckCardSize();
         moveParams.extraData = extraData;
 
+        // actions {Play, Defend} require a committed move; you must commit a card before calling `executeMove`.
+        // but they’re still declarative: the engine enforces nothing beyond the commitment; the ruleset decides the rest.
+        // the other actions {Draw, Neutral} are purely declarative (no commit) and are interpreted by the ruleset.
         if (action.eqsOr(Action.Play, Action.Defend)) {
             CommittedMoveData memory committedMove = getLatestCommittedMove(gameId);
             moveParams.card = committedMove.decryptedCard;
@@ -275,11 +277,9 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         moveParams.playerHand = player.hand;
         player.grantAccessToHand(address(ruleset));
         _executeMove(gameId, game, ruleset, moveParams, g0, g1);
-
         // update storage slots.
         g0.flush();
         g1.flush();
-
         // call `onExecuteMove` hook with an empty card since no card is played.
         // Card(0) represents an invaild or empty card.
         bool canEndGame = IManagerHook(gameCreator).onExecuteMove(
@@ -290,7 +290,7 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
     }
 
     function forfeit(uint256 gameId) external {
-        GameData storage game = _game[gameId];
+        GameData storage game = gd[gameId];
         // load storage value from game slot + index 0.
         Cache memory g0 = GameCacheManager.ldCache(slot0(game));
         // load storage value from game slot + index 1.
@@ -305,7 +305,7 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
     }
 
     function bootOut(uint256 gameId) external {
-        GameData storage game = _game[gameId];
+        GameData storage game = gd[gameId];
         // load storage value from game slot + index 0.
         Cache memory g0 = GameCacheManager.ldCache(slot0(game));
 
@@ -348,7 +348,8 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         // validate the callback signature and ensure this is the latest request.
         __validateCallbackSignature(requestId, clearTexts, gameId, signatures, true);
         _fulfillCommittedMove(requestId, gameId, clearTexts);
-        _game[gameId].lastMoveTimestamp = uint40(block.timestamp);
+        gd[gameId].lastMoveTimestamp = uint40(block.timestamp);
+        emit MoveCommitted(gameId, committedMove.playerIndex, committedMove.action);
     }
 
     function handleCommitMarketDeck(uint256 requestId, bytes memory clearTexts, bytes memory signatures)
@@ -360,21 +361,20 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         CommittedMarketDeck memory cmd = getCommittedMarketDeck(requestId);
         // validate the callback signature and ensure this is the latest request.
         __validateCallbackSignature(requestId, clearTexts, cmd.gameId, signatures, false);
-        GameData storage game = _game[cmd.gameId];
+        GameData storage game = gd[cmd.gameId];
         uint256[2] memory marketDeck = abi.decode(clearTexts, (uint256[2]));
         DeckMap marketDeckMap = game.marketDeckMap;
 
         uint256 playersLen = game.players.length;
         PlayerScoreData[] memory playersData = new PlayerScoreData[](playersLen);
         for (uint256 i = 0; i < playersLen; i++) {
-            (address playerAddr,, uint8 pendingAction,, bool forfeited) = _getPlayerData(game, i);
+            (address playerAddr, DeckMap playerDeckMap, uint8 pendingAction,, bool forfeited) = _getPlayerData(game, i);
             uint256 playerScore;
             if (!forfeited) {
-                marketDeckMap = game.resolvePending(i, marketDeckMap, pendingAction);
+                (marketDeckMap, playerDeckMap) = game.resolvePending(i, marketDeckMap, playerDeckMap, pendingAction);
                 playerScore = game.calculateAndSetPlayerScore(i, marketDeck);
             }
-            playersData[i] =
-                PlayerScoreData({playerAddr: playerAddr, deckMap: game.players[i].deckMap, score: playerScore});
+            playersData[i] = PlayerScoreData({playerAddr: playerAddr, deckMap: playerDeckMap, score: playerScore});
         }
         Cache memory g = GameCacheManager.ldCache(slot0(game));
         // call `onFinishGame` hook with players score data.
@@ -428,7 +428,6 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         IRuleset.Effect memory effect = ruleset.resolveMove(moveParams);
         // apply effect to game state.
         _applyEffect(game, effect, moveParams, g0, g1);
-
         emit MoveExecuted(gameId, moveParams.currentPlayerIndex, moveParams.gameAction);
     }
 
@@ -518,7 +517,7 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
     {
         PlayerData storage _player = game.players[playerIndex];
         uint256 playerSlot;
-        // store only player address and deckMap.
+        // store only data from slot 0.
         assembly ("memory-safe") {
             playerSlot := _player.slot
         }
@@ -565,12 +564,12 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
     }
 
     function getPlayerHand(uint256 gameId, uint256 playerIndex) external view returns (DeckMap, euint256[2] memory) {
-        PlayerData memory player = _game[gameId].players[playerIndex];
+        PlayerData memory player = gd[gameId].players[playerIndex];
         return (player.deckMap, player.hand);
     }
 
     function getPlayerData(uint256 gameId, uint256 playerIndex) external view returns (PlayerData memory player) {
-        player = _game[gameId].players[playerIndex];
+        player = gd[gameId].players[playerIndex];
     }
 
     function getGameData(uint256 gameId)
@@ -582,12 +581,16 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
             uint8 playerTurnIdx,
             GameStatus status,
             uint40 lastMoveTimestamp,
+            uint8 maxPlayers,
+            uint8 playersLeftToJoin,
+            HookPermissions hookPermissions,
             PlayerStoreMap playerStoreMap,
             IRuleset ruleset,
-            DeckMap marketDeckMap
+            DeckMap marketDeckMap,
+            uint8 initialHandSize
         )
     {
-        GameData storage game = _game[gameId];
+        GameData storage game = gd[gameId];
         Cache memory g = GameCacheManager.ldCache(slot0(game));
 
         gameCreator = g.ldGameCreator();
@@ -595,10 +598,14 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         playerTurnIdx = g.ldPlayerTurnIndex();
         status = g.ldStatus();
         lastMoveTimestamp = g.ldLastMoveTimestamp();
+        maxPlayers = g.ldMaxPlayers();
+        playersLeftToJoin = g.ldPlayersLeftToJoin();
+        hookPermissions = g.ldHookPermissions();
         playerStoreMap = g.ldPlayerStoreMap();
 
         g = GameCacheManager.ldCache(slot1(game));
         ruleset = g.ldRuleset();
         marketDeckMap = g.ldMarketDeckMap();
+        initialHandSize = g.ldHandSize();
     }
 }

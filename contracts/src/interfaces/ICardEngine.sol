@@ -45,8 +45,12 @@ interface ICardEngine {
             uint8 playerTurnIdx,
             GameStatus status,
             uint40 lastMoveTimestamp,
+            uint8 maxPlayers,
+            uint8 playersLeftToJoin,
+            HookPermissions hookPermissions,
             PlayerStoreMap playerStoreMap,
-            IRuleset ruleSet,
-            DeckMap marketDeckMap
+            IRuleset ruleset,
+            DeckMap marketDeckMap,
+            uint8 initialHandSize
         );
 }

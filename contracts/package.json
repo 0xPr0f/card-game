@@ -4,7 +4,7 @@
 	"description": "Cards Smart Contracts",
 	"private": true,
 	"scripts": {
-    "install": "forge install && bun i",
+		"install": "forge install && bun i",
 		"compile": "hardhat compile",
 		"test": "hardhat test"
 	},

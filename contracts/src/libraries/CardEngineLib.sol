@@ -403,18 +403,27 @@ library CardEngineLib {
         }
     }
 
-    function resolvePending(GameData storage $, uint256 currentIdx, DeckMap marketDeckMap, uint8 pendingAction)
-        internal
-        returns (DeckMap)
-    {
+    function resolvePending(
+        GameData storage $,
+        uint256 currentIdx,
+        DeckMap marketDeckMap,
+        DeckMap playerDeckMap,
+        uint8 pendingAction
+    ) internal returns (DeckMap, DeckMap) {
         // uint8 pendingAction = $.players[currentIdx].pendingAction;
-        if (pendingAction > 0) {
-            if (pendingAction != 0) {
-                marketDeckMap = $.deal(currentIdx, marketDeckMap);
-            } else {
-                marketDeckMap = $.dealPickN(currentIdx, marketDeckMap, uint256(pendingAction));
+        while (pendingAction > 0) {
+            if (marketDeckMap.isMapNotEmpty()) {
+                uint256 cardIdx;
+                (marketDeckMap, playerDeckMap, cardIdx) = marketDeckMap.deal(playerDeckMap);
             }
+            pendingAction--;
         }
-        return marketDeckMap;
+        if (pendingAction > 0) {
+            PlayerData storage p = $.players[currentIdx];
+            p.pendingAction = 0;
+            p.deckMap = playerDeckMap;
+            $.marketDeckMap = marketDeckMap;
+        }
+        return (marketDeckMap, playerDeckMap);
     }
 }

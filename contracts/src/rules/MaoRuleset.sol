@@ -13,6 +13,49 @@ import {FHE, euint256} from "@fhevm/solidity/lib/FHE.sol";
 
 import "hardhat/console.sol";
 
-// This contract contains the rules for the Whot game.
-// It includes functions to validate moves, check game state, etc.
-contract MaoRuleset {}
+contract MaoRuleset is IRuleset {
+    using ConditionalsLib for *;
+    using WhotCardStandardLibx8 for Card;
+
+    IRNG internal rng;
+
+    constructor(address _rng) {
+        rng = IRNG(_rng);
+    }
+
+    modifier onlyCardEngine() {
+        require(msg.sender == address(this), "Only Card Engine can call");
+        _;
+    }
+
+    function resolveMove(ResolveMoveParams memory params) public onlyCardEngine returns (Effect memory effect) {}
+
+    function computeStartIndex(PlayerStoreMap playerStoreMap) public view returns (uint8 startIdx) {
+        return uint8(rng.generatePseudoRandomNumber() % playerStoreMap.len());
+    }
+
+    function computeNextTurnIndex(PlayerStoreMap playerStoreMap, uint256 currentPlayerIndex)
+        public
+        pure
+        returns (uint8 nextTurnIdx)
+    {
+        return playerStoreMap.getNextIndex(uint8(currentPlayerIndex));
+    }
+
+    function isSpecialMoveCard(Card card) public pure returns (bool) {
+        return false;
+    }
+
+    function getCardAttributes(Card card, uint256)
+        /**
+         * cardSize
+         */
+        public
+        pure
+        returns (uint256 cardId, uint256 cardValue)
+    {
+        return (uint256(card.shape()), card.number());
+    }
+
+    function supportsCardSize(uint256 cardBitsSize) public pure returns (bool) {}
+}
