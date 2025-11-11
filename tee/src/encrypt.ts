@@ -2,7 +2,24 @@ import { createInstance, SepoliaConfig } from "@zama-fhe/relayer-sdk/node";
 import { fisherYatesShuffleU8, Rng32 } from "./utils";
 import { WHOT_DECK } from "./whot-cards";
 
-const instanceP = (async () => {
+type EncryptResult = {
+	inputProof: Uint8Array;
+	handles: string[];
+};
+
+type EncryptedInputBuilder = {
+	add256: (value: bigint) => void;
+	encrypt: () => Promise<EncryptResult>;
+};
+
+type RelayerInstance = {
+	createEncryptedInput: (
+		contractAddress: string,
+		importerAddress: string,
+	) => EncryptedInputBuilder;
+};
+
+const instanceP: Promise<RelayerInstance> = (async () => {
 	return createInstance({
 		...SepoliaConfig,
 		...(process.env.RELAYER_URL ? { relayerUrl: process.env.RELAYER_URL } : {}),
@@ -30,7 +47,7 @@ function splitIntoTwoUint256BE(src: Uint8Array): [Uint8Array, Uint8Array] {
 function be32ToBigInt(b32: Uint8Array): bigint {
 	// Using hex is simple & clear; EVM uses big-endian for uint256 by convention.
 	const hex = Buffer.from(b32).toString("hex");
-	return BigInt("0x" + hex);
+	return BigInt(`0x${hex}`);
 }
 
 export async function encryptMultipleDeck(
@@ -43,7 +60,7 @@ export async function encryptMultipleDeck(
 	const rng = new Rng32();
 	const cardDeck = new Uint8Array(WHOT_DECK.length);
 
-	const buf0: any = inst.createEncryptedInput(contractAddress, importerAddress);
+	const buf0 = inst.createEncryptedInput(contractAddress, importerAddress);
 	for (let k = 0; k < 4; k++) {
 		cardDeck.set(WHOT_DECK);
 		const shuffled = fisherYatesShuffleU8(rng, cardDeck);
@@ -63,10 +80,7 @@ export async function encryptMultipleDeck(
 	if (onProgress) onProgress(produced, expected);
 
 	while (produced < expected) {
-		const buf: any = inst.createEncryptedInput(
-			contractAddress,
-			importerAddress,
-		);
+		const buf = inst.createEncryptedInput(contractAddress, importerAddress);
 		for (let j = 0; j < 4; j++) {
 			cardDeck.set(WHOT_DECK);
 			const shuffled = fisherYatesShuffleU8(rng, cardDeck);

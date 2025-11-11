@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { randomBytes } from "node:crypto";
 
 // 32-bit CSPRNG with a byte pool
 export class Rng32 {

@@ -1,5 +1,4 @@
 import { TappdClient } from "@phala/dstack-sdk";
-import { toKeypairSecure } from "@phala/dstack-sdk/solana";
 import { toViemAccountSecure } from "@phala/dstack-sdk/viem";
 import { serve } from "bun";
 import { encryptMultipleDeck } from "./encrypt";
@@ -36,7 +35,10 @@ async function runQueue() {
 	queueRunning = true;
 	try {
 		while (queue.length) {
-			const id = queue.shift()!;
+			const id = queue.shift();
+			if (!id) {
+				break;
+			}
 			const job = jobs.get(id);
 			if (!job) continue;
 
@@ -58,9 +60,13 @@ async function runQueue() {
 				job.result = proofsU8.map(u8ToHex);
 				job.status = "done";
 				job.progress = 100;
-			} catch (e: any) {
+			} catch (e: unknown) {
 				job.status = "error";
-				job.error = e?.stack || String(e);
+				if (e instanceof Error) {
+					job.error = e.stack ?? e.message;
+				} else {
+					job.error = String(e);
+				}
 				// don't throw; continue processing the rest
 			}
 		}

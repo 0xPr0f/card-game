@@ -1,10 +1,10 @@
-const fs = require("fs");
+const fs = require("node:fs");
 const { task } = require("hardhat/config");
 const {
 	TASK_COMPILE_GET_REMAPPINGS,
 } = require("hardhat/builtin-tasks/task-names");
 
-task(TASK_COMPILE_GET_REMAPPINGS).setAction((taskArgs, env, runSuper) =>
+task(TASK_COMPILE_GET_REMAPPINGS).setAction((_taskArgs, _env, runSuper) =>
 	runSuper().then((remappings) =>
 		Object.assign(
 			remappings,

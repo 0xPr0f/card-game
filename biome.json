@@ -1,0 +1,22 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.3.2/schema.json",
+	"files": {
+		"includes": [
+			"**/*.{js,cjs,mjs,ts,cts,mts,tsx,jsx,json,jsonc,md}",
+			"!node_modules",
+			"!contracts/lib",
+			"!contracts/artifacts",
+			"!contracts/cache",
+			"!contracts/out",
+			"!contracts/contracts-exposed",
+			"!contracts/types"
+		],
+		"ignoreUnknown": true
+	},
+	"formatter": {
+		"enabled": true
+	},
+	"linter": {
+		"enabled": true
+	}
+}
