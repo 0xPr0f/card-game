@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 import {LibBit} from "solady/src/utils/LibBit.sol";
 
 type DeckMap is uint64;
@@ -241,7 +241,7 @@ library PlayerStoreMapLib {
     error MapIsEmpty(PlayerStoreMap);
 
     function rawMap(PlayerStoreMap playerStoreMap) internal pure returns (uint8) {
-        return PlayerStoreMap.unwrap(playerStoreMap) >> 2;
+        return PlayerStoreMap.unwrap(playerStoreMap) >> 1;
     }
 
     function isEmpty(PlayerStoreMap playerStoreMap, uint256 idx) internal pure returns (bool) {
@@ -305,7 +305,7 @@ library PlayerStoreMapLib {
         if (map.isNotEmpty(idx)) {
             revert IndexNotEmpty(idx); //("PlayerStoreMapLib: Idx already occupied");
         }
-        return PlayerStoreMap.wrap(uint8(PlayerStoreMap.unwrap(map) | (uint256(1) << idx)));
+        return PlayerStoreMap.wrap(uint8(PlayerStoreMap.unwrap(map) | (uint256(1) << (idx + 1))));
     }
 
     function removePlayer(PlayerStoreMap map, uint256 idx) internal pure returns (PlayerStoreMap) {
@@ -314,7 +314,7 @@ library PlayerStoreMapLib {
         if (map.isEmpty(idx)) {
             revert IndexIsEmpty(idx); //("PlayerStoreMapLib: Idx already empty");
         }
-        return PlayerStoreMap.wrap(uint8(PlayerStoreMap.unwrap(map) & ~(uint256(1) << idx)));
+        return PlayerStoreMap.wrap(uint8(PlayerStoreMap.unwrap(map) & ~(uint256(1) << (idx + 1))));
     }
 
     // function getActivePlayers(PlayerStoreMap playerStoreMap)

@@ -11,7 +11,7 @@ import {DeckMap} from "../types/Map.sol";
 abstract contract AsyncHandler {
     using FHE for *;
 
-    // uint256 immutable MAX_CALLBACK_DELAY;
+    uint256 constant DEFAULT_REQUEST_ID = type(uint256).max;
     uint256 private _latestRequest;
 
     mapping(uint256 requestId => CommittedMoveData) private requestToCommittedMove;
@@ -34,6 +34,11 @@ abstract contract AsyncHandler {
     struct CommittedMarketDeck {
         uint256 gameId;
         euint256[2] marketDeck;
+    }
+
+    function _initializeGameCallback(uint256 gameId) internal {
+        gameIdToLatestCommittedMoveRequestId[gameId] = DEFAULT_REQUEST_ID;
+        gameIdToLatestCommittedMarketDeckRequestId[gameId] = DEFAULT_REQUEST_ID;
     }
 
     function _commitMove(uint256 gameId, euint8 cardToCommit, Action action, uint256 cardIndex, uint256 playerIndex)
@@ -84,11 +89,12 @@ abstract contract AsyncHandler {
     ) internal {
         if (isCommittedMoveAction) {
             require(
-                gameIdToLatestCommittedMoveRequestId[gameId] == reqId && reqId != 0, "Not latest committed move request"
+                gameIdToLatestCommittedMoveRequestId[gameId] == reqId && reqId != DEFAULT_REQUEST_ID,
+                "Not latest committed move request"
             );
         } else {
             require(
-                gameIdToLatestCommittedMarketDeckRequestId[gameId] == reqId && reqId != 0,
+                gameIdToLatestCommittedMarketDeckRequestId[gameId] == reqId && reqId != DEFAULT_REQUEST_ID,
                 "Not latest committed market deck request"
             );
         }
@@ -106,7 +112,7 @@ abstract contract AsyncHandler {
     function getLatestCommittedMove(uint256 gameId) internal view returns (CommittedMoveData memory) {
         uint256 latestReqId = gameIdToLatestCommittedMoveRequestId[gameId];
         CommittedMoveData memory committedMove = requestToCommittedMove[latestReqId];
-        if (latestReqId != 0) {
+        if (latestReqId != DEFAULT_REQUEST_ID) {
             require(committedMove.fulfilled, "Latest committed move not fulfilled");
         } else {
             revert("No committed move for game");
@@ -122,7 +128,7 @@ abstract contract AsyncHandler {
         return _hasCommittedAction[gameId];
     }
 
-    function _fulfillCommittedMove(uint256 reqId, uint256 gameId, bytes memory clearTexts) internal {
+    function _fulfillCommittedMove(uint256 reqId, bytes memory clearTexts) internal {
         CommittedMoveData storage committedMove = requestToCommittedMove[reqId];
         uint8 rawCard = abi.decode(clearTexts, (uint8));
         committedMove.decryptedCard = CardLib.toCard(rawCard);
@@ -131,9 +137,9 @@ abstract contract AsyncHandler {
 
     function _clearLatestCommittedMove(uint256 gameId) internal {
         uint256 latestReqId = gameIdToLatestCommittedMoveRequestId[gameId];
-        if (latestReqId != 0) {
+        if (latestReqId != DEFAULT_REQUEST_ID) {
             _hasCommittedAction[gameId] = false;
-            gameIdToLatestCommittedMoveRequestId[gameId] = 0;
+            gameIdToLatestCommittedMoveRequestId[gameId] = DEFAULT_REQUEST_ID;
         }
     }
 
