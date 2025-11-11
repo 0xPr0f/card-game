@@ -8,15 +8,35 @@ import {DeckMap} from "../types/Map.sol";
 
 type HookPermissions is uint8;
 
+using Hook for HookPermissions global;
+
 library Hook {
     uint8 constant ON_START_GAME_FLAG = 1 << 0;
     uint8 constant ON_JOIN_GAME_FLAG = 1 << 1;
     uint8 constant ON_EXECUTE_MOVE_FLAG = 1 << 2;
     uint8 constant ON_FINISH_GAME_FLAG = 1 << 3;
+    uint8 constant ON_PLAYER_EXIT_FLAG = 1 << 4;
+    uint8 constant HAS_SPECIAL_MOVES_FLAG = 1 << 5;
+    uint8 constant CAN_BOOT_OUT_FLAG = 1 << 6;
+
+    function hasPermission(HookPermissions permissions, uint8 flag) internal pure returns (bool) {
+        return (HookPermissions.unwrap(permissions) & flag) != 0;
+    }
 
     function callHook() internal returns (bytes memory retData) {}
-    function onStartGame(IManagerHook hook, HookPermissions permissions, uint256 gameId) internal returns (bool) {}
-    function onJoinGame(IManagerHook hook, HookPermissions permissions, uint256 gameId, address player) internal {}
+
+    function onStartGame(IManagerHook hook, HookPermissions permissions, uint256 gameId) internal returns (bool) {
+        if (permissions.hasPermission(ON_START_GAME_FLAG)) {
+            return hook.onStartGame(gameId);
+        }
+    }
+
+    function onJoinGame(IManagerHook hook, HookPermissions permissions, uint256 gameId, address player) internal {
+        if (permissions.hasPermission(ON_JOIN_GAME_FLAG)) {
+            hook.onJoinGame(gameId, player);
+        }
+    }
+
     function onExecuteMove(
         IManagerHook hook,
         HookPermissions permissions,
@@ -24,14 +44,36 @@ library Hook {
         address player,
         Card playingCard,
         Action action
-    ) internal returns (bool) {}
+    ) internal returns (bool) {
+        if (permissions.hasPermission(ON_EXECUTE_MOVE_FLAG)) {
+            return hook.onExecuteMove(gameId, player, playingCard, action);
+        }
+    }
+
     function onFinishGame(
         IManagerHook hook,
         HookPermissions permissions,
         uint256 gameId,
         PlayerScoreData[] memory playersData,
         uint256[2] memory marketDeck
-    ) internal {}
+    ) internal {
+        if (permissions.hasPermission(ON_FINISH_GAME_FLAG)) {
+            hook.onFinishGame(gameId, playersData, marketDeck);
+        }
+    }
+
+    function onPlayerExit(
+        IManagerHook hook,
+        HookPermissions permissions,
+        uint256 gameId,
+        address player,
+        bool forfeited
+    ) internal {
+        if (permissions.hasPermission(ON_PLAYER_EXIT_FLAG)) {
+            hook.onPlayerExit(gameId, player, forfeited);
+        }
+    }
+
     function hasSpecialMoves(
         IManagerView hook,
         HookPermissions permissions,
@@ -39,7 +81,11 @@ library Hook {
         address player,
         Card playingCard,
         Action action
-    ) internal view returns (bool) {}
+    ) internal view returns (bool) {
+        if (permissions.hasPermission(HAS_SPECIAL_MOVES_FLAG)) {
+            return hook.hasSpecialMoves(gameId, player, playingCard, action);
+        }
+    }
 
     function canBootOut(
         IManagerView hook,
@@ -48,5 +94,10 @@ library Hook {
         address player,
         uint40 playerLastMoveTimestamp,
         bool defaultResult
-    ) internal view returns (bool) {}
+    ) internal view returns (bool) {
+        if (permissions.hasPermission(CAN_BOOT_OUT_FLAG)) {
+            return hook.canBootOut(gameId, player, playerLastMoveTimestamp);
+        }
+        return defaultResult;
+    }
 }
