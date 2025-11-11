@@ -16,9 +16,8 @@ interface IManagerView {
 interface IManagerHook {
     function onStartGame(uint256 gameId) external returns (bool);
     function onJoinGame(uint256 gameId, address player) external;
-    function onExecuteMove(uint256 gameId, address player, Card playingCard, Action action, bool playerDeckMapEmpty)
-        external
-        returns (bool);
+    function onExecuteMove(uint256 gameId, address player, Card playingCard, Action action) external returns (bool);
+    function onPlayerExit(uint256 gameId, address player, bool forfeited) external;
     function onFinishGame(uint256 gameId, PlayerScoreData[] calldata playersData, uint256[2] calldata marketDeck)
         external;
 }

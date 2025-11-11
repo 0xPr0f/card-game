@@ -11,7 +11,7 @@ import {PlayerStoreMap} from "../types/Map.sol";
 import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import {FHE, euint256} from "@fhevm/solidity/lib/FHE.sol";
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 contract MaoRuleset is IRuleset {
     using ConditionalsLib for *;

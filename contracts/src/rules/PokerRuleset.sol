@@ -11,7 +11,7 @@ import {PlayerStoreMap} from "../types/Map.sol";
 import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import {FHE, euint256} from "@fhevm/solidity/lib/FHE.sol";
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 // This contract contains the rules for the Whot game.
 // It includes functions to validate moves, check game state, etc.

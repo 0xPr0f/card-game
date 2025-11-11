@@ -9,7 +9,7 @@ import {Card, CardLib} from "../types/Card.sol";
 import {HookPermissions} from "../types/Hook.sol";
 import {DeckMap, PlayerStoreMap} from "../types/Map.sol";
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 enum Action {
     Play,
@@ -139,7 +139,8 @@ library CardEngineLib {
         DeckMap marketDeckMap = $.marketDeckMap;
         uint256 cardSize = marketDeckMap.getDeckCardSize();
         uint256 numCardsIn0 = 256 / cardSize;
-        if (cardIdx > (numCardsIn0 - 1)) revert CardIndexOutOfBounds(cardIdx);
+        // uint256 maxCardIdx = numCardsIn0 * $.marketDeck.length;
+        // if (cardIdx >= maxCardIdx) revert CardIndexOutOfBounds(cardIdx);
         if (marketDeckMap.isNotEmpty(cardIdx) || playerDeckMap.isEmpty(cardIdx)) {
             revert CardIndexIsEmpty(cardIdx);
         }

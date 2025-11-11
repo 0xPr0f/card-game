@@ -29,7 +29,7 @@ interface ICardEngine {
     function commitMove(uint256 gameId, Action action, uint256 cardIndex, bytes memory extraData) external;
     function executeMove(uint256 gameId, Action action, bytes memory extraData) external;
     function forfeit(uint256 gameId) external;
-    function bootOut(uint256 gameId) external;
+    function bootOut(uint256 gameId, uint256 playerIndex) external;
 
     function getPlayerHand(uint256 gameId, uint256 playerIndex)
         external

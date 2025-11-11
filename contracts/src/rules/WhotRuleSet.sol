@@ -8,21 +8,23 @@ import {ConditionalsLib} from "../libraries/ConditionalsLib.sol";
 import {Card, WhotCardStandardLibx8 as Whot} from "../types/Card.sol";
 import {PlayerStoreMap} from "../types/Map.sol";
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 contract WhotRuleset is IRuleset {
     using ConditionalsLib for *;
     using Whot for Card;
 
     uint256 constant CARD_SIZE_8 = 8;
+    address immutable CARD_ENGINE_ADDRESS;
     IRNG internal rng;
 
-    constructor(address _rng) {
+    constructor(address _rng, address _cardEngineAddress) {
+        CARD_ENGINE_ADDRESS = _cardEngineAddress;
         rng = IRNG(_rng);
     }
 
     modifier onlyCardEngine() {
-        require(msg.sender == address(this), "Only Card Engine can call");
+        require(msg.sender == CARD_ENGINE_ADDRESS, "Only Card Engine can call");
         _;
     }
 
@@ -32,7 +34,7 @@ contract WhotRuleset is IRuleset {
             if (!params.callCard.matchWhot(params.card)) {
                 revert("Cards don't match");
             }
-            effect.callCard = params.callCard;
+            effect.callCard = params.card;
             if (params.card.pickTwo()) {
                 if (params.card.pickFour() && params.isSpecial) {
                     actionsToExec[0].op = EngineOp.PickPendingFour;
@@ -64,6 +66,11 @@ contract WhotRuleset is IRuleset {
                 uint8 nextTurn = params.playerStoreMap.getNextIndex(params.currentPlayerIndex);
                 effect.nextPlayerIndex = nextTurn; // Normal play, just advance turn
             }
+            if(params.playerDeckMap.isMapEmpty() && effect.nextPlayerIndex == params.currentPlayerIndex){
+                // Cannot end game with an action card.
+                actionsToExec[0].op = EngineOp.PickOne;
+                actionsToExec[0].againstPlayerIndex = params.currentPlayerIndex;
+            }
         } else if (params.gameAction.eqs(GameAction.Defend)) {
             effect.callCard = params.callCard;
             if (!params.isSpecial) {
@@ -76,6 +83,7 @@ contract WhotRuleset is IRuleset {
             }
             effect.nextPlayerIndex = nextTurn;
         } else if (params.gameAction.eqs(GameAction.Draw)) {
+            effect.callCard = params.callCard;
             if (params.pendingAction > 0) {
                 actionsToExec[0].op = EngineOp(params.pendingAction % 8);
             } else {
