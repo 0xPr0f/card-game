@@ -372,6 +372,13 @@ const formatActionDetails = (
 	return `[${label}] idx=${cardIdx} | card=${cardText} | effect=${effect}`;
 };
 
+const buildExtraDataForCard = (cardValue: number): string => {
+	if (getCardNumber(cardValue) === 20) {
+		return ethers.AbiCoder.defaultAbiCoder().encode(["uint8"], [0]);
+	}
+	return "0x";
+};
+
 const cardsMatchCallCard = (
 	cardValue: number,
 	callCardValue: number,
@@ -902,7 +909,11 @@ describe("Engine", () => {
 
 			it("prevents non-current players from executing Play actions", async function () {
 				const gameId = await setupStartedGame(this);
-				const { currentIndex, playerSigner } = await commitCardForCurrentPlayer(
+				const {
+					currentIndex,
+					playerSigner,
+					targetCardValue,
+				} = await commitCardForCurrentPlayer(
 					this,
 					gameId,
 					ACTION.Play,
@@ -931,7 +942,11 @@ describe("Engine", () => {
 
 			it("executes a committed Play action end-to-end", async function () {
 				const gameId = await setupStartedGame(this);
-				const { currentIndex, playerSigner } = await commitCardForCurrentPlayer(
+				const {
+					currentIndex,
+					playerSigner,
+					targetCardValue,
+				} = await commitCardForCurrentPlayer(
 					this,
 					gameId,
 					ACTION.Play,
@@ -946,7 +961,11 @@ describe("Engine", () => {
 				await expect(
 					this.cardEngine
 						.connect(playerSigner)
-						.executeMove(Number(gameId), ACTION.Play, "0x"),
+						.executeMove(
+							Number(gameId),
+							ACTION.Play,
+							buildExtraDataForCard(targetCardValue),
+						),
 				)
 					.to.emit(this.cardEngine, "MoveExecuted")
 					.withArgs(gameId, currentIndex, ACTION.Play);
@@ -1047,11 +1066,11 @@ describe("Engine", () => {
 			]);
 			await this.cardEngine.connect(this.alice).startGame(gameId);
 
-			const {
-				playerSigner,
-				currentIndex,
-				targetCardIdx,
-				targetCardValue,
+					const {
+						playerSigner,
+						currentIndex,
+						targetCardIdx,
+						targetCardValue,
 				callCardValue,
 				cardIndexes,
 				currentAction,
@@ -1068,7 +1087,11 @@ describe("Engine", () => {
 			await expect(
 				this.cardEngine
 					.connect(playerSigner)
-					.executeMove(Number(gameId), ACTION.Play, "0x"),
+					.executeMove(
+						Number(gameId),
+						ACTION.Play,
+						buildExtraDataForCard(targetCardValue),
+					),
 			)
 				.to.emit(this.cardEngine, "MoveExecuted")
 				.withArgs(gameId, currentIndex, ACTION.Play);
@@ -1192,7 +1215,11 @@ describe("Engine", () => {
 
 					await this.cardEngine
 						.connect(playerSigner)
-						.executeMove(Number(gameId), ACTION.Play, "0x");
+						.executeMove(
+							Number(gameId),
+							ACTION.Play,
+							buildExtraDataForCard(targetCardValue),
+						);
 
 					const stateAfter = await this.cardEngine.getGameData(gameId);
 					if (Number(stateAfter.status) !== 2) {
