@@ -26,7 +26,7 @@ interface ICardEngine {
     function createGame(CreateGameParams calldata params) external returns (uint256 gameId);
     function joinGame(uint256 gameId) external;
     function startGame(uint256 gameId) external;
-    function commitMove(uint256 gameId, Action action, uint256 cardIndex, bytes memory extraData) external;
+    function commitMove(uint256 gameId, Action action, uint256 cardIndex) external;
     function executeMove(uint256 gameId, Action action, bytes memory extraData) external;
     function forfeit(uint256 gameId) external;
     function bootOut(uint256 gameId, uint256 playerIndex) external;

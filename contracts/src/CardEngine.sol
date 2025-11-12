@@ -207,7 +207,7 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
         finish(gameId, game, endGame, g0, g1);
     }
 
-    function commitMove(uint256 gameId, Action action, uint256 cardIndex, bytes memory extraData) external {
+    function commitMove(uint256 gameId, Action action, uint256 cardIndex) external {
         ensureNoCommittedAction(gameId);
 
         GameData storage game = gd[gameId];
@@ -526,7 +526,7 @@ contract CardEngine is ICardEngine, EInputHandler, AsyncHandler, ReentrancyGuard
 
         // update next player turn index here.
         uint8 nextPlayer = effect.nextPlayerIndex;
-        if(moveParams.playerStoreMap.isEmpty(nextPlayer)) {
+        if (moveParams.playerStoreMap.isEmpty(nextPlayer)) {
             revert InvalidPlayerIndex();
         }
         g0.sdPlayerTurnIndex(nextPlayer);

@@ -5,7 +5,7 @@ import {IRNG} from "../interfaces/IRNG.sol";
 import {IRuleset} from "../interfaces/IRuleset.sol";
 import {Action as GameAction, PendingAction as GamePendingAction} from "../libraries/CardEngineLib.sol";
 import {ConditionalsLib} from "../libraries/ConditionalsLib.sol";
-import {Card, WhotCardStandardLibx8} from "../types/Card.sol";
+import {Standard52CardDeckLibx8} from "../libraries/StandardCardDeck.sol";
 import {PlayerStoreMap} from "../types/Map.sol";
 
 import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";

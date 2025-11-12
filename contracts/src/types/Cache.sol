@@ -111,14 +111,9 @@ library CacheManager {
 }
 
 import {IRuleset} from "../interfaces/IRuleset.sol";
-// import {Action, CardEngineLib, GameData, GameStatus, PendingAction, PlayerData} from "../libraries/CardEngineLib.sol";
-// import {ConditionalsLib} from "../libraries/ConditionalsLib.sol";
-// import {CacheManager, CacheValue} from "../types/Cache.sol";
-// import {Card, CardLib} from "../types/Card.sol";
-
 import {HookPermissions} from "../types/Hook.sol";
 import {DeckMap, PlayerStoreMap} from "../types/Map.sol";
-// import "hardhat/console.sol";
+
 
 struct Cache {
     CacheValue prevValue;

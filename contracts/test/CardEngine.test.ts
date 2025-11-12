@@ -495,7 +495,7 @@ const commitCardForCurrentPlayer = async (
 	const normalizedGameId = Number(gameId);
 	const commitTx = await ctx.cardEngine
 		.connect(context.playerSigner)
-		.commitMove(normalizedGameId, action, targetCardIdx, "0x");
+		.commitMove(normalizedGameId, action, targetCardIdx);
 	await commitTx.wait();
 	await fhevm.awaitDecryptionOracle();
 	return {
@@ -887,7 +887,7 @@ describe("Engine", () => {
 				const targetCardIdx = cardIndexes[0];
 				const commitTx = await this.cardEngine
 					.connect(playerSigner)
-					.commitMove(Number(gameId), ACTION.Play, targetCardIdx, "0x");
+					.commitMove(Number(gameId), ACTION.Play, targetCardIdx);
 				await commitTx.wait();
 
 				await expect(

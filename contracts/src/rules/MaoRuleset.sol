@@ -5,8 +5,10 @@ import {IRNG} from "../interfaces/IRNG.sol";
 import {IRuleset} from "../interfaces/IRuleset.sol";
 import {Action as GameAction, PendingAction as GamePendingAction} from "../libraries/CardEngineLib.sol";
 import {ConditionalsLib} from "../libraries/ConditionalsLib.sol";
-import {Card, WhotCardStandardLibx8} from "../types/Card.sol";
+import {Standard52CardDeckLibx8} from "../libraries/StandardCardDeck.sol";
 import {PlayerStoreMap} from "../types/Map.sol";
+import {Card} from "../types/Card.sol";
+
 
 import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import {FHE, euint256} from "@fhevm/solidity/lib/FHE.sol";
@@ -15,7 +17,7 @@ import {FHE, euint256} from "@fhevm/solidity/lib/FHE.sol";
 
 contract MaoRuleset is IRuleset {
     using ConditionalsLib for *;
-    using WhotCardStandardLibx8 for Card;
+    using Standard52CardDeckLibx8 for Card;
 
     IRNG internal rng;
 
@@ -54,7 +56,6 @@ contract MaoRuleset is IRuleset {
         pure
         returns (uint256 cardId, uint256 cardValue)
     {
-        return (uint256(card.shape()), card.number());
     }
 
     function supportsCardSize(uint256 cardBitsSize) public pure returns (bool) {}

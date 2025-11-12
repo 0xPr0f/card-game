@@ -5,17 +5,18 @@ import {IRNG} from "../interfaces/IRNG.sol";
 import {IRuleset} from "../interfaces/IRuleset.sol";
 import {Action as GameAction, PendingAction as GamePendingAction} from "../libraries/CardEngineLib.sol";
 import {ConditionalsLib} from "../libraries/ConditionalsLib.sol";
-import {Card, WhotCardStandardLibx8 as Whot} from "../types/Card.sol";
+import {WhotCardStandardLibx8 as WhotCard} from "../libraries/WhotCardDeck.sol";
 import {PlayerStoreMap} from "../types/Map.sol";
+import {Card} from "../types/Card.sol";
 
 // import "hardhat/console.sol";
 
 contract WhotRuleset is IRuleset {
     using ConditionalsLib for *;
-    using Whot for Card;
+    using WhotCard for Card;
 
-    uint256 constant CARD_SIZE_8 = 8;
     address immutable CARD_ENGINE_ADDRESS;
+    uint256 constant CARD_SIZE_8 = 8;
     IRNG internal rng;
 
     constructor(address _rng, address _cardEngineAddress) {
@@ -60,13 +61,14 @@ contract WhotRuleset is IRuleset {
                 actionsToExec[0].againstPlayerIndex = type(uint8).max; // Set turn to 0 for general market op
                 effect.nextPlayerIndex = params.currentPlayerIndex;
             } else if (params.card.iWish()) {
-                (Whot.CardShape wishShape) = abi.decode(params.extraData, (Whot.CardShape));
-                effect.callCard = Whot.makeWhotWish(wishShape);
+                (WhotCard.CardShape wishShape) = abi.decode(params.extraData, (WhotCard.CardShape));
+                effect.callCard = WhotCard.makeWhotWish(wishShape);
+                effect.nextPlayerIndex = params.currentPlayerIndex;
             } else {
                 uint8 nextTurn = params.playerStoreMap.getNextIndex(params.currentPlayerIndex);
                 effect.nextPlayerIndex = nextTurn; // Normal play, just advance turn
             }
-            if(params.playerDeckMap.isMapEmpty() && effect.nextPlayerIndex == params.currentPlayerIndex){
+            if (params.playerDeckMap.isMapEmpty() && effect.nextPlayerIndex == params.currentPlayerIndex) {
                 // Cannot end game with an action card.
                 actionsToExec[0].op = EngineOp.PickOne;
                 actionsToExec[0].againstPlayerIndex = params.currentPlayerIndex;
